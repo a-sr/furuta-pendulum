@@ -1,1 +1,1 @@
-# furuta-pendulum
+# Furuta Pendulum

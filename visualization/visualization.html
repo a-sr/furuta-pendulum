@@ -74,6 +74,7 @@
         <button id="play" type="button" class="btn btn-primary btn-sm">Play</button>
         <input id="file-input" type="file" style="display: none;" accept=".csv" />
         <button id="mute" type="button" class="btn btn-info btn-sm">Sound Off</button>
+        <button id="time-type" type="button" class="btn btn-info btn-sm">Use Physical Time</button>
         <div>
           <div>
             <button id="connect" type="button" class="btn btn-primary btn-sm">Connect</button>
@@ -880,6 +881,7 @@
     // -- Internal state --
     const neutralState = {
       time: 0.0,
+      ptime: 0.0,
       led: false,
       speaker: false,
       theta: Math.PI,
@@ -890,6 +892,7 @@
 
     let connection = undefined; // The websocket connection
     let mute = true; // Sound on/off
+    let usePTime = false; // Toggle between physical and logical time
     let chartControl = true; // Model applies state based on chart hovering
 
     let play = false; // Indicated live simulation or playing recorded data
@@ -974,11 +977,11 @@
 
     const volumeDefault = 0.3;
     const volume = ctx.createGain();
-    volume.gain.value = mute ? 0 : volumeDefault;
+    volume.gain.value = volumeDefault;
 
     speaker.connect(volume);
     volume.connect(ctx.destination);
-    speaker.start();
+    // Speaker will be started and stopped by mute button
 
     /**
      * Update the sound frequency.
@@ -1007,7 +1010,9 @@
             while (right + 1 < history.length && history[right + 1].speaker == hilo) { right++ }
             right++;
             if (right < history.length) {
-              speaker.frequency.value = 1 / ((history[right].time - history[left].time) * 2);
+              let rTime = usePTime ? history[right].ptime : history[right].time
+              let lTime = usePTime ? history[left].ptime : history[left].time
+              speaker.frequency.value = 1 / ((rTime - lTime) * 2);
             }
           }
         }
@@ -1150,6 +1155,12 @@
         x: {
           time: false,
         },
+        y: {
+          range: (self, fromMin, fromMax) => [
+            0,
+            usePTime ? (fromMax < 200 ? fromMax : 200) : 125,
+          ],
+        }
       },
       padding: chartPadding,
     };
@@ -1210,7 +1221,7 @@
         return a;
       };
       return [
-        history.map(s => s.time),
+        history.map(s => usePTime ? s.ptime : s.time),
         history.map(s => adjust(s.theta)),
         history.map(s => adjust(s.phi)),
       ];
@@ -1223,11 +1234,12 @@
       let t = [];
       let v = [];
       for (let i = 0; i < history.length; i++) {
+        let time = usePTime ? history[i].ptime : history[i].time;
         if (i > 0 && history[i - 1].led != history[i].led) {
-          t.push(history[i].time);
+          t.push(time);
           v.push(history[i - 1].led ? 1 : 0);
         }
-        t.push(history[i].time);
+        t.push(time);
         v.push(history[i].led ? 1 : 0);
       }
       return [t, v];
@@ -1240,19 +1252,20 @@
       let t = [];
       let v = [];
       let f = [];
-      let lastChange = history[0].time;
+      let lastChange = usePTime ? history[0].ptime : history[0].time;
       let freq = null;
       for (let i = 0; i < history.length; i++) {
+        let time = usePTime ? history[i].ptime : history[i].time;
         if (i > 0 && history[i - 1].speaker != history[i].speaker) {
-          t.push(history[i].time);
+          t.push(time);
           v.push(history[i - 1].speaker ? 124 : 0);
           f.push(freq);
           // new freq
-          let cycle = history[i].time - lastChange;
-          freq = cycle > 0 ? 1 / (cycle * 2) : null;
-          lastChange = history[i].time;
+          let cycle = time - lastChange;
+          freq = cycle > 0.0001 ? 1 / (cycle * 2) : null;
+          lastChange = time;
         }
-        t.push(history[i].time);
+        t.push(time);
         v.push(history[i].speaker ? 124 : 0);
         f.push(freq);
       }
@@ -1268,7 +1281,7 @@
         ledChart.setData(ledData());
         speakerChart.setData(speakerData());
         controlChart.setData([
-          history.map(s => s.time),
+          history.map(s => usePTime ? s.ptime : s.time),
           history.map(s => s.control),
           history.map(s => s.energy),
         ]);
@@ -1310,6 +1323,7 @@
     const controlDiv = document.getElementById("controls");
     const playBtn = document.getElementById("play");
     const muteBtn = document.getElementById("mute");
+    const timeBtn = document.getElementById("time-type");
     const timeSlider = document.getElementById("time-slider");
     const connectBtn = document.getElementById("connect");
     const loadCsvBtn = document.getElementById("load");
@@ -1327,6 +1341,7 @@
      */
     function sanitizeState(s) {
       s.time = parseFloat(s.time);
+      s.ptime = parseFloat(s.ptime);
       s.led = parseInt(s.led);
       s.speaker = parseInt(s.speaker);
       s.control = parseFloat(s.control);
@@ -1422,11 +1437,20 @@
       mute = !mute;
       if (mute) {
         muteBtn.textContent = "Sound On";
-        volume.gain.value = 0;
+        speaker.stop();
       } else {
         muteBtn.textContent = "Sound Off";
-        volume.gain.value = volumeDefault;
+        speaker.start();
       }
+    });
+
+    // - Toggle logical/physical time -
+    timeBtn.textContent = "Use " + (usePTime ? "Logical": "Physical") + " Time"; // Set initial label
+
+    timeBtn.addEventListener("click", (e) => {
+      usePTime = !usePTime;
+      timeBtn.textContent = "Use " + (usePTime ? "Logical": "Physical") + " Time";
+      syncCharts();
     });
 
     // - Connect to live simulation -
@@ -1579,8 +1603,8 @@
 
     saveCsvBtn.addEventListener("click", (e) => {
       var blob = new Blob(
-        ["Time,LED,Speaker,Control,Energy,Theta,dTheta,Phi,dPhi\n"].concat(
-          history.map((s) => [s.time, s.led, s.speaker, s.control, s.energy, s.theta_raw, s.dtheta, s.phi_raw, s.dphi].join(",") + "\n")
+        ["Time,PTime,LED,Speaker,Control,Energy,Theta,dTheta,Phi,dPhi\n"].concat(
+          history.map((s) => [s.time, s.ptime, s.led, s.speaker, s.control, s.energy, s.theta_raw, s.dtheta, s.phi_raw, s.dphi].join(",") + "\n")
         ), { type: "text/plain;charset=utf-8" }
       );
       saveAs(blob, "pendulum.csv");
@@ -1613,7 +1637,7 @@
       const d = parseFloat(disturbSlider.value);
       if (d) {
         // Disturbance is a direct addition to the angle
-        sendDisturbance(d * (Math.PI / 12));
+        sendDisturbance(d * (Math.PI / 21));
       }
     });
 

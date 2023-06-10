@@ -60,6 +60,7 @@ Additionally, the script can start a live simulation for some of the model varia
 - Python version 3
 - Java version 17+
 - GCC
+- make
 - gunplot
 
 ### Compatibility

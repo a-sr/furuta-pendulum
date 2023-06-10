@@ -1,0 +1,102 @@
+target C {
+    files: [
+        "../impl/visualization.h",
+        "../impl/visualization.c",
+        "../facil.io/libdump"
+    ],
+    cmake-include: ["../impl/visualization.cmake"],
+    keepalive: true
+};
+
+/**
+ * This reactor starts a sever that establishes connections to
+ * a web visualization (visualization/visualization.html) for
+ * a live observation and interaction with the pendulum.
+ * It allows pausing the simulation and disturbing the pendulum.
+ * 
+ * The server logic is factored out (impl/visualization.c) and 
+ * uses the facil.io library.
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+reactor VisualizationServer {
+    input control:double;
+    input led:bool;
+    input speaker:bool;
+    input energy:double; 
+   
+    input theta:double;
+    input d_theta:double;
+    input phi:double;
+    input d_phi:double;
+    
+    output pause:bool;
+    output disturbance:double;
+
+    preamble {=
+        #include "visualization.h"
+    =}
+    
+    physical action pause_input:bool; // Pause button input
+    physical action disturbance_input:double; // Disturb button input
+    
+    state paused:bool(true); // Simulation state
+    state last_disturbance:double(0); // Stores disturbance in case simulation is paused
+    state simulation_time:time(0); // Tracks time of the simulation, ignoring pauses
+    state last_simulation_step:time(0); // Time of last simulation output
+    
+    preamble {=
+        // Callback functions for actions
+        void pause_callback(void* dest, char pause) {
+            lf_schedule_copy(dest, 0, &pause, 1);
+        }
+        void disturbance_callback(void* dest, double disturbance) {
+            lf_schedule_copy(dest, 0, &disturbance, 1);
+        }
+    =}
+    
+    reaction(startup) pause_input, disturbance_input -> pause {=
+        // Set simulation to paused
+        lf_set(pause, self->paused);
+        // Start server and register action callbacks
+        start_server_async(pause_callback, pause_input, disturbance_callback, disturbance_input);
+    =}
+    
+    reaction(pause_input) -> pause, disturbance {=
+        // Pause simulation
+        self->paused = pause_input->value;
+        lf_set(pause, self->paused);
+        // Introduce pending disturbance upon unpausing
+        if (self->last_disturbance != 0) {
+            lf_set(disturbance, self->last_disturbance);
+            self->last_disturbance = 0;
+        }
+        // Track simulation time
+        if (!self->paused) {
+            self->last_simulation_step = lf_time_logical_elapsed();
+        }
+    =}
+    
+    reaction(disturbance_input) -> disturbance {=
+        if (self->paused) {
+            // Store disturbance until simulation gets unpaused
+            self->last_disturbance = disturbance_input->value;
+        } else {
+            // Apply disturbance
+            lf_set(disturbance, disturbance_input->value);
+        }
+    =}
+    
+    reaction(control, led, speaker, energy, theta, d_theta, phi, d_phi) {=
+        // Compute time relative to simulation
+        self->simulation_time += lf_time_logical_elapsed() - self->last_simulation_step;
+        self->last_simulation_step = lf_time_logical_elapsed();
+        // add physical delay to get physical time of simulation
+        double ptime = (self->simulation_time + (lf_time_physical_elapsed() - lf_time_logical_elapsed())) / 1.0e9; 
+        // Send state to visualization
+        send_status(self->simulation_time / 1.0e9, ptime,
+            led->value, speaker->value, control->value, energy->value,
+            theta->value, d_theta->value, phi->value, d_phi->value
+        );
+    =}
+}

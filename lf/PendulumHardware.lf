@@ -1,0 +1,43 @@
+/**
+ * Mock reactors for a hardware setup of a Furuta pendulum.
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+target C;
+
+reactor Angles(poll_rate:time(5msec)) {
+    output theta:double;
+    output d_theta:double;
+    output phi:double;
+    output d_phi:double;
+    
+    timer t(0, poll_rate)
+    
+    reaction(t) -> theta, d_theta, phi, d_phi {=
+        // Read sensor values
+    =}
+}
+
+reactor LED {
+    input on:bool
+    
+    reaction(on) {=
+        // Set LED signal
+    =}
+}
+
+reactor Speaker {
+    input wave_signal:bool
+    
+    reaction(wave_signal) {=
+        // Set sound signal
+    =}
+}
+
+reactor Motor {
+    input control:double
+    
+    reaction(control) {=
+        // Drive motor
+    =}
+}

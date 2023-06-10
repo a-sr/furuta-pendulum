@@ -1,0 +1,89 @@
+target C {
+    files: ["../../impl/behavior.h", "../../impl/behavior.c"],
+    cmake-include: ["../../impl/behavior.cmake"]
+}
+
+/**
+ * This reactor provides the control behavior for the Furuta pendulum
+ * motor and LED using only classical LF elements.
+ * 
+ * The control logic is factored out (impl/behavior.c) and is based
+ * on a Ptolemy II model constructed by Johan Eker and described 
+ * in this paper:
+ * J. Liu, J. Eker, J. W. Janneck, and E. A. Lee,
+ * “Realistic simulations of embedded control systems,”
+ * IFAC Proceedings Volumes, vol. 35, no. 1, pp. 391–396, 2002.
+ *
+ * Original adaption to C and LF by Edward A. Lee, see:
+ * https://github.com/lf-lang/examples-lingua-franca/tree/383e816627e2668330df3dfc08e7f4202461f42c/C/src/modal_models/FurutaPendulum
+ * 
+ * @author Edward A. Lee
+ * @author Alexander Schulz-Rosengarten
+ */
+reactor PendulumController {  
+    input theta:double;
+    input d_theta:double;
+    input phi:double;
+    input d_phi:double;
+    
+    output control:double;
+    output led:bool;
+    
+    preamble {=
+        #include "behavior.h"
+        typedef enum {SwingUp, Catch, Stabilize} ControlModes;
+    =}
+
+    state catch_phi:double(0.0); // Phi angle after Catch mode (required for Stabilize)
+    state control_mode:ControlModes({=SwingUp=}); // Current control mode
+    state led_state:bool(false); // Latest state of the LED signal
+    
+    timer toggle_led(0, 15 msec);
+    
+    reaction(toggle_led) -> led {=
+        if (self->control_mode == Catch) {
+            // Only in Catch toggle LED
+            self->led_state = !self->led_state;
+            lf_set(led, self->led_state);
+        }
+    =}
+    
+    reaction(theta, d_theta, phi, d_phi) -> control, led {=
+        double c; // Motor control response
+        switch (self->control_mode) {
+            case SwingUp: 
+                // Compute motor control response
+                c = swingup_control(theta->value, d_theta->value);
+                if (exit_swingup(theta->value)) {
+                    // Switch mode and set LED
+                    self->control_mode = Catch;
+                    self->led_state = true;
+                    lf_set(led, self->led_state);
+                }
+                break;
+            case Catch: 
+                // Compute motor control response
+                c = catch_control(theta->value, d_theta->value, phi->value, d_phi->value);
+                if (exit_catch(d_phi->value)) {
+                    // Switch mode and set LED
+                    self->catch_phi = phi->value;
+                    self->control_mode = Stabilize;
+                    self->led_state = true;
+                    lf_set(led, self->led_state);
+                }
+                break;
+            case Stabilize:
+                // Compute motor control response
+                c = stabilize_control(theta->value, d_theta->value, phi->value, d_phi->value, self->catch_phi);
+                if (exit_stabilize(theta->value)) {
+                    // Switch mode and set LED
+                    self->control_mode = SwingUp;
+                    self->led_state = false;
+                    lf_set(led, self->led_state);
+                }
+                break;
+        }
+        // Send control value
+        lf_set(control, c);
+    =}
+}

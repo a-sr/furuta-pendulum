@@ -1,0 +1,52 @@
+target C {
+    files: ["../impl/behavior.h","../impl/behavior.c"],
+    cmake-include: ["../impl/behavior.cmake"]
+}
+
+/**
+ * This reactor produces a square wave sound signal relative to 
+ * the angle of the pendulum.
+ * The logic for determining the frequency is factored out
+ * (see impl/behavior.c).
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+reactor PendulumSound {
+    preamble {=
+        #include "behavior.h"
+    =}
+    
+    input angle:double;
+    output sound:bool;
+    
+    logical action alternate:time;
+    
+    state wave_state:bool(false); // Current state of the square wave signal
+    state cycle_duration:time(0); // Currently applied cycle length
+    state last_switch:time(0); // Last occurrence of a signal edge
+    
+    reaction(angle, alternate) -> sound, alternate {=
+        // Produce alternating square wave
+        // If alternate trigger was not scheduled with the current cycle_duration, discard triggering
+        if (alternate->is_present && alternate->value == self->cycle_duration) {
+            self->wave_state = !self->wave_state;
+            lf_set(sound, self->wave_state);
+            // Schedule next switch
+            lf_schedule_copy(alternate, self->cycle_duration, &self->cycle_duration, 1);
+            // Save time of alternation
+            self->last_switch = lf_time_logical();
+        }
+        // Adjust period to angle
+        if (angle->is_present) {
+            interval_t new_duration = SEC((1 / sound_frequency(angle->value)) / 2);
+            if (new_duration != self->cycle_duration) {
+                // Compute time to wave change with new pulse duration
+                interval_t remaining_time = MAX(new_duration - (lf_time_logical() - self->last_switch), 0);
+                // Schedule new alternation event
+                lf_schedule_copy(alternate, remaining_time, &new_duration, 1);
+                // Save new duration to distinguish events
+                self->cycle_duration = new_duration;
+            }
+        }
+    =}
+}

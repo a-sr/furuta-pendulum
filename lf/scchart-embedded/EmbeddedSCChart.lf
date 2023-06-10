@@ -1,0 +1,73 @@
+target C {
+    files: [
+      "../../impl/behavior.h",
+      "../../impl/behavior.c",
+      "./code/EmbeddedController.h",
+      "./code/EmbeddedController.c"
+    ],
+    cmake-include: ["../../impl/behavior.cmake"]
+}
+
+/**
+ * This reactor provides the control behavior for the Furuta pendulum
+ * motor, LED, and sound using an SCChart model embedded in this reactor.
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+reactor EmbeddedSCChart {
+    // The SCCharts code is already compiled into "EmbeddedController.c"
+    preamble {=
+        #include "EmbeddedController.h"
+        // Direct inclusion of the code to ease compilation and imports
+        #include "EmbeddedController.c"
+    =}
+    
+    input theta:double;
+    input d_theta:double;
+    input phi:double;
+    input d_phi:double;
+    
+    output control:double;
+    output led:bool;
+    output sound:bool;
+    
+    logical action sleep:time; // Wake-up action for dynamic ticks
+    state tick:time(0); // Logical time of the last tick
+    state scchart:{=TickData=}; // Internal state of the SCChart
+
+    reaction(startup) {=
+        // Initialize the state of the SCChart
+        reset(&self->scchart);
+    =}
+    
+    reaction(theta, d_theta, phi, d_phi, sleep) -> control, led, sound, sleep {=
+        // React on inputs or scheduled sleep time, unless the wake-up was not schedule by the latest tick
+        if (theta->is_present || d_theta->is_present || phi->is_present || d_phi->is_present 
+              || (sleep->is_present && sleep->value == self->tick)) {
+            // Compute passed time
+            self->scchart.deltaT = lf_time_logical_elapsed() - self->tick;
+
+            // Forward inputs
+            if (theta->is_present) { self->scchart.theta = theta->value; }
+            if (d_theta->is_present) { self->scchart.d_theta = d_theta->value; }
+            if (phi->is_present) { self->scchart.phi = phi->value; }
+            if (d_phi->is_present) { self->scchart.d_phi = d_phi->value; }
+            
+            // Perform tick
+            tick(&self->scchart);
+            
+            // Forward outputs
+            lf_set(led, self->scchart.led);
+            lf_set(sound, self->scchart.sound);
+            if (theta->is_present || d_theta->is_present || phi->is_present || d_phi->is_present) {
+                // This mimics the event-driven nature of the LF implementation variant.
+                // Otherwise the simulation would show a slightly different result.
+                lf_set(control, self->scchart.control);
+            }
+            
+            // Compute and schedule next wake-up
+            self->tick = lf_time_logical_elapsed();
+            lf_schedule_copy(sleep, self->scchart.sleepT, &self->tick, 1);
+        }
+    =}
+}

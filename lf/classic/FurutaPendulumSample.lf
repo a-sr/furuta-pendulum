@@ -1,0 +1,54 @@
+target C {
+    timeout: 3 secs,
+    fast: false,
+    threading: false,
+    flags: "-lm"
+}
+
+import PendulumController from "PendulumController.lf";
+import PendulumSound from "../PendulumSound.lf";
+import PendulumSimulation, PendulumEnergy from "../PendulumSimulation.lf";
+import Output from "../Output.lf"
+
+/**
+ * This model of the Furuta pendulum control program conducts
+ * a 3 second simulation and stores the observed behavior in a
+ * separate file. 
+ *
+ * The simulation and motor control logic is based on a Ptolemy II
+ * model constructed by Johan Eker and described in this paper:
+ * J. Liu, J. Eker, J. W. Janneck, and E. A. Lee,
+ * “Realistic simulations of embedded control systems,”
+ * IFAC Proceedings Volumes, vol. 35, no. 1, pp. 391–396, 2002.
+ *
+ * Original adaption to C and LF by Edward A. Lee, see:
+ * https://github.com/lf-lang/examples-lingua-franca/tree/383e816627e2668330df3dfc08e7f4202461f42c/C/src/modal_models/FurutaPendulum
+ * 
+ * @author Edward A. Lee
+ * @author Alexander Schulz-Rosengarten
+ */
+main reactor {
+    sim = new PendulumSimulation()
+    ene = new PendulumEnergy()
+    
+    con = new PendulumController()
+    sou = new PendulumSound()
+    
+    out = new Output()
+    
+    sim.phi, sim.d_phi -> con.phi, con.d_phi
+    sim.theta, sim.d_theta -> con.theta, con.d_theta
+    sim.theta -> sou.angle
+    
+    con.control -> sim.control
+    
+    sim.phi, sim.d_phi -> out.phi, out.d_phi
+    sim.theta, sim.d_theta -> out.theta, out.d_theta
+    
+    sim.theta, sim.d_theta -> ene.theta, ene.d_theta
+    
+    con.control -> out.control
+    con.led -> out.led
+    sou.sound -> out.speaker
+    ene.energy -> out.energy
+}

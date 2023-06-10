@@ -1,0 +1,33 @@
+target C {
+    flags: "-lm"
+}
+
+import PendulumController from "PendulumController.lf";
+import PendulumSound from "../PendulumSound.lf";
+import Angles, Motor, LED, Speaker from "../PendulumHardware.lf";
+
+/**
+ * Generic setup of a Furuta pendulum control program
+ * with motor, LED, and sound output.
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+main reactor {
+    controller = new PendulumController()
+    sound = new PendulumSound()
+   
+    angles = new Angles()
+    led = new LED()
+    speaker = new Speaker()
+    motor = new Motor()
+        
+    angles.theta -> controller.theta
+    angles.d_theta -> controller.d_theta
+    angles.phi -> controller.phi
+    angles.d_phi -> controller.d_phi
+    controller.control -> motor.control
+    controller.led -> led.on
+    
+    angles.theta -> sound.angle
+    sound.sound -> speaker.wave_signal
+}

@@ -1,0 +1,43 @@
+#hostcode-c "#include \"behavior.h\""
+
+import "../../sccharts/dynamic-ticks/PendulumController.sctx"
+import "../../sccharts/dynamic-ticks/PendulumSound.sctx"
+
+/**
+ * This SCChart provides the control behavior for the Furuta pendulum
+ * motor, LED, and sound using Timed SCCharts and dynamic ticks.
+ * 
+ * The control logic is factored out (impl/behavior.c) and is based
+ * on a Ptolemy II model constructed by Johan Eker and described 
+ * in this paper:
+ * J. Liu, J. Eker, J. W. Janneck, and E. A. Lee,
+ * “Realistic simulations of embedded control systems,”
+ * IFAC Proceedings Volumes, vol. 35, no. 1, pp. 391–396, 2002.
+ *
+ * Original adaption to C and LF by Edward A. Lee, see:
+ * https://github.com/lf-lang/examples-lingua-franca/tree/383e816627e2668330df3dfc08e7f4202461f42c/C/src/modal_models/FurutaPendulum
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+@IntegerClockType "instant_t" // Set host type for clocks
+@DefaultSleep "SEC(1)" // Default sleep time, in case none is requested by the model itself
+@ClocksUseSD // Advanced composition support for clocks
+scchart EmbeddedController {
+    input float theta
+    input float d_theta
+    input float phi
+    input float d_phi
+    input float angle
+    
+    output float control = 0
+    output bool led = false
+    output bool sound = true
+    
+    region Controller { 
+        initial state Run is PendulumController(theta, d_theta, phi, d_phi, control, led)
+    }
+    
+    region Sound {
+        initial state Run is PendulumSound(theta, sound)
+    }
+}

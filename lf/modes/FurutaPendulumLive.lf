@@ -1,0 +1,69 @@
+target C {
+    fast: false,
+    keepalive: true,
+    flags: "-lm"
+}
+
+import PendulumController from "PendulumController.lf";
+import PendulumSound from "../PendulumSound.lf";
+import PendulumEnergy from "../PendulumSimulation.lf";
+import PendulumSimulation from "../PendulumSimulation.lf";
+import VisualizationServer from "../VisualizationServer.lf"
+
+/**
+ * This model of the Furuta pendulum control program sets up
+ * a WebSocket sever that will send the simulation data to
+ * a web visualization (visualization/visualization.html) for
+ * a live observation.
+ * The graphical frontend allows pausing the simulation and
+ * disturbing the pendulum.
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+main reactor {
+    server = new VisualizationServer()
+    
+    initial mode Paused {
+        reaction(server.pause) -> history(Running) {=
+            if (!(server.pause->value)) {
+                // Unpause simulation.
+                // The history transition will handle continuing the previous state.
+                lf_set_mode(Running);
+            }
+        =}
+    }
+    
+    mode Running {
+        // The speed parameter can be used to run the simulation in slow-motion.
+        sim = new PendulumSimulation(speed=1.0)
+        e = new PendulumEnergy()
+        
+        c = new PendulumController()
+        s = new PendulumSound()
+        
+        sim.phi, sim.d_phi -> c.phi, c.d_phi
+        sim.theta, sim.d_theta -> c.theta, c.d_theta
+        sim.theta -> s.angle
+        
+        c.control -> sim.control
+        
+        sim.phi, sim.d_phi -> server.phi, server.d_phi
+        sim.theta, sim.d_theta -> server.theta, server.d_theta
+        
+        sim.theta, sim.d_theta -> e.theta, e.d_theta
+        
+        c.control -> server.control
+        c.led -> server.led
+        s.sound -> server.speaker
+        e.energy -> server.energy
+        
+        server.disturbance -> sim.disturbance
+        
+        reaction(server.pause) -> Paused {=
+            if (server.pause->value) {
+                // Pause
+                lf_set_mode(Paused);
+            }
+        =}
+    }
+}

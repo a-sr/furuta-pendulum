@@ -240,9 +240,10 @@ def check_facil():
             print("facil.io submodule not checked out!")
             answer = input('Checkout facil.io submodule now? (Yes/No): ')
             if answer.lower() == "yes" or answer.lower() == "y":
+                run_cmd(["git", "submodule", "init"], ROOT)
                 run_cmd(["git", "submodule", "update"], ROOT)
             else:
-                print("Please update facil.io submodule by running 'git submodule update'.")
+                print("Please update the facil.io submodule by running 'git submodule init && git submodule update'.")
                 exit(0)
 
         print("Missing facil.io library files!")

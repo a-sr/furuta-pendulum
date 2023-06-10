@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Furuta Pendulum</title>
+  <style>
+    body {
+      margin: 0;
+    }
+
+    .left {
+      height: 100%;
+      width: 50%;
+      position: fixed;
+      z-index: 1;
+      top: 0;
+      overflow-x: hidden;
+      left: 0;
+      display: flex;
+      flex-flow: column;
+    }
+
+    .right {
+      height: 100%;
+      width: 50%;
+      position: fixed;
+      z-index: 1;
+      top: 0;
+      overflow-x: hidden;
+      right: -2px;
+    }
+
+    .buttons {
+      display: flex;
+      flex-flow: row wrap;
+      justify-content: space-between;
+      margin: 5px;
+    }
+
+    .time {
+      width: 98%;
+      margin: 0 1%;
+    }
+
+    .disturbance {
+      display: flex;
+      flex-flow: row wrap;
+      align-items: center;
+      margin: 5px;
+    }
+
+    .disturbance>span {
+      margin: 0 10px;
+    }
+
+    .disturbance>input {
+      margin: 0 10px;
+      width: 50%;
+    }
+
+    table.u-legend {
+      margin-top: -30px;
+      margin-bottom: -10px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="loading" style="margin: 15px;"><strong>Loading...</strong></div>
+  <div id="main" style="display: none;">
+    <div class="left">
+      <div id="controls" class="buttons">
+        <button id="play" type="button" class="btn btn-primary btn-sm">Play</button>
+        <input id="file-input" type="file" style="display: none;" accept=".csv" />
+        <button id="mute" type="button" class="btn btn-info btn-sm">Sound Off</button>
+        <button id="time-type" type="button" class="btn btn-info btn-sm">Use Physical Time</button>
+        <div>
+          <div>
+            <button id="connect" type="button" class="btn btn-primary btn-sm">Connect</button>
+            <button id="load" type="button" class="btn btn-primary btn-sm">Load CSV</button>
+            <button id="save" type="button" class="btn btn-primary btn-sm">Save CSV</button>
+          </div>
+        </div>
+      </div>
+      <input id="time-slider" type="range" min="0" max="0" value="0" class="time form-range">
+      <div id="disturbance" class="disturbance">
+        <button id="disturb" type="button" class="btn btn-secondary btn-sm">Disturb</button>
+        <input id="disturb-slider" type="range" min="0" max="0" value="0" class="form-range">
+        <span id="disturb-value"></span>
+      </div>
+      <div id="charts" style="height: 100%; width:100%">
+        <div id="angles-chart"></div>
+        <div id="led-chart"></div>
+        <div id="speaker-chart"></div>
+        <div id="control-chart"></div>
+      </div>
+    </div>
+    <div id="3d" class="right">
+    </div>
+  </div>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css"
+    integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot/dist/uPlot.min.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/uplot/dist/uPlot.iife.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.142.0/build/three.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.4/dist/FileSaver.min.js"></script>
+
+  <script>
+    // The 3D model created using the three.js editor
+    const SCENE_DATA = {
+      "metadata": {
+        "version": 4.5,
+        "type": "Object",
+        "generator": "Object3D.toJSON"
+      },
+      "geometries": [
+        {
+          "uuid": "dfd92a2f-9e92-4540-a77b-d8202b478552",
+          "type": "LatheGeometry",
+          "points": [
+            {
+              "isVector2": true,
+              "x": 0.3,
+              "y": 0.5
+            },
+            {
+              "isVector2": true,
+              "x": 0.5,
+              "y": 0
+            },
+            {
+              "isVector2": true,
+              "x": 0.45,
+              "y": 0
+            },
+            {
+              "isVector2": true,
+              "x": 0,
+              "y": 0.5
+            }],
+          "segments": 64,
+          "phiStart": 0,
+          "phiLength": 6.283185307179586
+        },
+        {
+          "uuid": "499a8979-443a-49fe-a8a6-245fb44b7881",
+          "type": "LatheGeometry",
+          "points": [
+            {
+              "isVector2": true,
+              "x": 0,
+              "y": 0.5
+            },
+            {
+              "isVector2": true,
+              "x": 0.5,
+              "y": 0
+            }],
+          "segments": 64,
+          "phiStart": 0,
+          "phiLength": 6.283185307179586
+        },
+        {
+          "uuid": "a1074102-8034-4439-9497-41e5e0d5b469",
+          "type": "SphereGeometry",
+          "radius": 1,
+          "widthSegments": 32,
+          "heightSegments": 16,
+          "phiStart": 0,
+          "phiLength": 6.283185307179586,
+          "thetaStart": 0,
+          "thetaLength": 3.141592653589793
+        },
+        {
+          "uuid": "6c49412e-9db2-42ac-b27d-5b476abc78ca",
+          "type": "CylinderGeometry",
+          "radiusTop": 1,
+          "radiusBottom": 1,
+          "height": 1,
+          "radialSegments": 50,
+          "heightSegments": 1,
+          "openEnded": false,
+          "thetaStart": 0,
+          "thetaLength": 6.283185307179586
+        },
+        {
+          "uuid": "f5e92a0c-0bc3-4668-a734-614d05e5f43d",
+          "type": "CylinderGeometry",
+          "radiusTop": 1,
+          "radiusBottom": 1,
+          "height": 1,
+          "radialSegments": 30,
+          "heightSegments": 1,
+          "openEnded": false,
+          "thetaStart": 0,
+          "thetaLength": 6.283185307179586
+        },
+        {
+          "uuid": "33dd0357-46d4-447c-a536-f7842bf464cb",
+          "type": "CylinderGeometry",
+          "radiusTop": 1,
+          "radiusBottom": 1,
+          "height": 1,
+          "radialSegments": 30,
+          "heightSegments": 1,
+          "openEnded": false,
+          "thetaStart": 0,
+          "thetaLength": 6.283185307179586
+        },
+        {
+          "uuid": "8ea9db5e-956d-4ab5-a95e-b820f6bbc81f",
+          "type": "SphereGeometry",
+          "radius": 1,
+          "widthSegments": 32,
+          "heightSegments": 16,
+          "phiStart": 0,
+          "phiLength": 6.283185307179586,
+          "thetaStart": 0,
+          "thetaLength": 3.141592653589793
+        },
+        {
+          "uuid": "c22005b3-5691-467f-b8cc-166cc9724f76",
+          "type": "BoxGeometry",
+          "width": 1,
+          "height": 1,
+          "depth": 1,
+          "widthSegments": 1,
+          "heightSegments": 1,
+          "depthSegments": 1
+        },
+        {
+          "uuid": "5cc8e8e0-4311-47ef-8ff4-7dfd97bbc172",
+          "type": "SphereGeometry",
+          "radius": 1,
+          "widthSegments": 32,
+          "heightSegments": 16,
+          "phiStart": 0,
+          "phiLength": 6.283185307179586,
+          "thetaStart": 0,
+          "thetaLength": 3.141592653589793
+        },
+        {
+          "uuid": "be44a81a-f1ca-4dbe-9046-e9c28639757a",
+          "type": "CylinderGeometry",
+          "radiusTop": 1,
+          "radiusBottom": 1,
+          "height": 1,
+          "radialSegments": 32,
+          "heightSegments": 1,
+          "openEnded": false,
+          "thetaStart": 0,
+          "thetaLength": 6.283185307179586
+        }],
+      "materials": [
+        {
+          "uuid": "d8a613f6-1d20-4382-9bbe-b316dda76388",
+          "type": "MeshStandardMaterial",
+          "color": 3028022,
+          "roughness": 1,
+          "metalness": 0,
+          "emissive": 3028022,
+          "emissiveIntensity": 0.1,
+          "envMapIntensity": 1,
+          "side": 1,
+          "depthFunc": 3,
+          "depthTest": true,
+          "depthWrite": true,
+          "colorWrite": true,
+          "stencilWrite": false,
+          "stencilWriteMask": 255,
+          "stencilFunc": 519,
+          "stencilRef": 0,
+          "stencilFuncMask": 255,
+          "stencilFail": 7680,
+          "stencilZFail": 7680,
+          "stencilZPass": 7680
+        },
+        {
+          "uuid": "7ea2e386-d78d-45ad-a6d1-7b679b2d6caa",
+          "type": "MeshStandardMaterial",
+          "color": 0,
+          "roughness": 1,
+          "metalness": 0,
+          "emissive": 5592915,
+          "emissiveIntensity": 0.26,
+          "envMapIntensity": 1,
+          "side": 2,
+          "depthFunc": 3,
+          "depthTest": true,
+          "depthWrite": true,
+          "colorWrite": true,
+          "stencilWrite": false,
+          "stencilWriteMask": 255,
+          "stencilFunc": 519,
+          "stencilRef": 0,
+          "stencilFuncMask": 255,
+          "stencilFail": 7680,
+          "stencilZFail": 7680,
+          "stencilZPass": 7680
+        },
+        {
+          "uuid": "6d1461bf-bed9-4f65-87d1-19e850e4cd62",
+          "type": "MeshStandardMaterial",
+          "color": 0,
+          "roughness": 1,
+          "metalness": 0,
+          "emissive": 5592915,
+          "emissiveIntensity": 0.14,
+          "envMapIntensity": 1,
+          "depthFunc": 3,
+          "depthTest": true,
+          "depthWrite": true,
+          "colorWrite": true,
+          "stencilWrite": false,
+          "stencilWriteMask": 255,
+          "stencilFunc": 519,
+          "stencilRef": 0,
+          "stencilFuncMask": 255,
+          "stencilFail": 7680,
+          "stencilZFail": 7680,
+          "stencilZPass": 7680
+        },
+        {
+          "uuid": "acbfdb64-9d38-4d7e-b9d9-b1447a16d008",
+          "type": "MeshPhysicalMaterial",
+          "color": 8948357,
+          "roughness": 1,
+          "metalness": 1,
+          "sheen": 0,
+          "sheenColor": 0,
+          "sheenRoughness": 1,
+          "emissive": 13883343,
+          "emissiveIntensity": 0.4,
+          "specularIntensity": 1,
+          "specularColor": 16777215,
+          "clearcoat": 1,
+          "clearcoatRoughness": 0,
+          "iridescence": 0,
+          "iridescenceIOR": 1.3,
+          "iridescenceThicknessRange": [100, 400],
+          "envMapIntensity": 1,
+          "reflectivity": 0.49999999999999983,
+          "transmission": 0,
+          "thickness": 0,
+          "attenuationDistance": 0,
+          "attenuationColor": 16777215,
+          "depthFunc": 3,
+          "depthTest": true,
+          "depthWrite": true,
+          "colorWrite": true,
+          "stencilWrite": false,
+          "stencilWriteMask": 255,
+          "stencilFunc": 519,
+          "stencilRef": 0,
+          "stencilFuncMask": 255,
+          "stencilFail": 7680,
+          "stencilZFail": 7680,
+          "stencilZPass": 7680
+        },
+        {
+          "uuid": "e3f035f5-a75a-417f-86b9-ac14ea2a49e8",
+          "type": "MeshPhysicalMaterial",
+          "color": 3028022,
+          "roughness": 1,
+          "metalness": 1,
+          "sheen": 0,
+          "sheenColor": 0,
+          "sheenRoughness": 1,
+          "emissive": 5592915,
+          "emissiveIntensity": 0.36,
+          "specularIntensity": 1,
+          "specularColor": 16777215,
+          "clearcoat": 1,
+          "clearcoatRoughness": 0,
+          "iridescence": 0,
+          "iridescenceIOR": 1.3,
+          "iridescenceThicknessRange": [100, 400],
+          "envMapIntensity": 1,
+          "reflectivity": 0.49999999999999983,
+          "transmission": 0,
+          "thickness": 0,
+          "attenuationDistance": 0,
+          "attenuationColor": 16777215,
+          "depthFunc": 3,
+          "depthTest": true,
+          "depthWrite": true,
+          "colorWrite": true,
+          "stencilWrite": false,
+          "stencilWriteMask": 255,
+          "stencilFunc": 519,
+          "stencilRef": 0,
+          "stencilFuncMask": 255,
+          "stencilFail": 7680,
+          "stencilZFail": 7680,
+          "stencilZPass": 7680
+        },
+        {
+          "uuid": "b16f4fbb-decb-44de-bb86-87c7f5375ed8",
+          "type": "MeshPhysicalMaterial",
+          "color": 13883343,
+          "roughness": 1,
+          "metalness": 1,
+          "sheen": 0,
+          "sheenColor": 0,
+          "sheenRoughness": 1,
+          "emissive": 15658732,
+          "emissiveIntensity": 0.6,
+          "specularIntensity": 1,
+          "specularColor": 16777215,
+          "clearcoat": 1,
+          "clearcoatRoughness": 0,
+          "iridescence": 0,
+          "iridescenceIOR": 1.3,
+          "iridescenceThicknessRange": [100, 400],
+          "envMapIntensity": 1,
+          "reflectivity": 1,
+          "transmission": 0,
+          "thickness": 0,
+          "attenuationDistance": 0,
+          "attenuationColor": 16777215,
+          "depthFunc": 3,
+          "depthTest": true,
+          "depthWrite": true,
+          "colorWrite": true,
+          "stencilWrite": false,
+          "stencilWriteMask": 255,
+          "stencilFunc": 519,
+          "stencilRef": 0,
+          "stencilFuncMask": 255,
+          "stencilFail": 7680,
+          "stencilZFail": 7680,
+          "stencilZPass": 7680
+        },
+        {
+          "uuid": "7b80c620-2150-47dd-9a8f-be7e2f52f38d",
+          "type": "MeshPhysicalMaterial",
+          "color": 5592915,
+          "roughness": 1,
+          "metalness": 1,
+          "sheen": 0,
+          "sheenColor": 0,
+          "sheenRoughness": 1,
+          "emissive": 2116231,
+          "emissiveIntensity": 0.6,
+          "specularIntensity": 1,
+          "specularColor": 16777215,
+          "clearcoat": 1,
+          "clearcoatRoughness": 0,
+          "iridescence": 0,
+          "iridescenceIOR": 1.3,
+          "iridescenceThicknessRange": [100, 400],
+          "envMapIntensity": 1,
+          "reflectivity": 0.49999999999999983,
+          "transmission": 0,
+          "thickness": 0,
+          "attenuationDistance": 0,
+          "attenuationColor": 16777215,
+          "depthFunc": 3,
+          "depthTest": true,
+          "depthWrite": true,
+          "colorWrite": true,
+          "stencilWrite": false,
+          "stencilWriteMask": 255,
+          "stencilFunc": 519,
+          "stencilRef": 0,
+          "stencilFuncMask": 255,
+          "stencilFail": 7680,
+          "stencilZFail": 7680,
+          "stencilZPass": 7680
+        },
+        {
+          "uuid": "7af2b004-9de2-4b51-87bf-f28c34f2acc6",
+          "type": "MeshPhysicalMaterial",
+          "color": 5592915,
+          "roughness": 1,
+          "metalness": 1,
+          "sheen": 0,
+          "sheenColor": 0,
+          "sheenRoughness": 1,
+          "emissive": 10747904,
+          "emissiveIntensity": 0.3,
+          "specularIntensity": 1,
+          "specularColor": 16777215,
+          "clearcoat": 1,
+          "clearcoatRoughness": 0,
+          "iridescence": 0,
+          "iridescenceIOR": 1.3,
+          "iridescenceThicknessRange": [100, 400],
+          "envMapIntensity": 1,
+          "reflectivity": 0.49999999999999983,
+          "transmission": 0,
+          "thickness": 0,
+          "attenuationDistance": 0,
+          "attenuationColor": 16777215,
+          "depthFunc": 3,
+          "depthTest": true,
+          "depthWrite": true,
+          "colorWrite": true,
+          "stencilWrite": false,
+          "stencilWriteMask": 255,
+          "stencilFunc": 519,
+          "stencilRef": 0,
+          "stencilFuncMask": 255,
+          "stencilFail": 7680,
+          "stencilZFail": 7680,
+          "stencilZPass": 7680
+        },
+        {
+          "uuid": "3b7f6360-6a15-4969-880b-856bba7fe23a",
+          "type": "MeshPhysicalMaterial",
+          "color": 5592915,
+          "roughness": 1,
+          "metalness": 1,
+          "sheen": 0,
+          "sheenColor": 0,
+          "sheenRoughness": 1,
+          "emissive": 10747904,
+          "emissiveIntensity": 0.3,
+          "specularIntensity": 1,
+          "specularColor": 16777215,
+          "clearcoat": 1,
+          "clearcoatRoughness": 0,
+          "iridescence": 0,
+          "iridescenceIOR": 1.3,
+          "iridescenceThicknessRange": [100, 400],
+          "envMapIntensity": 1,
+          "reflectivity": 0.49999999999999983,
+          "transmission": 0,
+          "thickness": 0,
+          "attenuationDistance": 0,
+          "attenuationColor": 16777215,
+          "depthFunc": 3,
+          "depthTest": true,
+          "depthWrite": true,
+          "colorWrite": true,
+          "stencilWrite": false,
+          "stencilWriteMask": 255,
+          "stencilFunc": 519,
+          "stencilRef": 0,
+          "stencilFuncMask": 255,
+          "stencilFail": 7680,
+          "stencilZFail": 7680,
+          "stencilZPass": 7680
+        },
+        {
+          "uuid": "fe8b6a96-1d29-4a99-a962-e305934e65de",
+          "type": "MeshStandardMaterial",
+          "color": 8948357,
+          "roughness": 1,
+          "metalness": 0,
+          "emissive": 5592915,
+          "envMapIntensity": 1,
+          "side": 1,
+          "depthFunc": 3,
+          "depthTest": true,
+          "depthWrite": true,
+          "colorWrite": true,
+          "stencilWrite": false,
+          "stencilWriteMask": 255,
+          "stencilFunc": 519,
+          "stencilRef": 0,
+          "stencilFuncMask": 255,
+          "stencilFail": 7680,
+          "stencilZFail": 7680,
+          "stencilZPass": 7680
+        },
+        {
+          "uuid": "085ce84d-849a-4389-b879-9d4a1ac8b800",
+          "type": "MeshStandardMaterial",
+          "color": 5151238,
+          "roughness": 1,
+          "metalness": 0,
+          "emissive": 7590422,
+          "envMapIntensity": 1,
+          "depthFunc": 3,
+          "depthTest": true,
+          "depthWrite": true,
+          "colorWrite": true,
+          "stencilWrite": false,
+          "stencilWriteMask": 255,
+          "stencilFunc": 519,
+          "stencilRef": 0,
+          "stencilFuncMask": 255,
+          "stencilFail": 7680,
+          "stencilZFail": 7680,
+          "stencilZPass": 7680
+        },
+        {
+          "uuid": "b318c88e-3cbe-4f4f-ad3b-910238c9aed3",
+          "type": "MeshPhysicalMaterial",
+          "color": 5151238,
+          "roughness": 1,
+          "metalness": 0,
+          "sheen": 0,
+          "sheenColor": 0,
+          "sheenRoughness": 1,
+          "emissive": 7590422,
+          "specularIntensity": 1,
+          "specularColor": 16777215,
+          "clearcoat": 0,
+          "clearcoatRoughness": 0,
+          "iridescence": 0,
+          "iridescenceIOR": 1.3,
+          "iridescenceThicknessRange": [100, 400],
+          "envMapIntensity": 1,
+          "reflectivity": 0.49999999999999983,
+          "transmission": 0,
+          "thickness": 0,
+          "attenuationDistance": 0,
+          "attenuationColor": 16777215,
+          "depthFunc": 3,
+          "depthTest": true,
+          "depthWrite": true,
+          "colorWrite": true,
+          "stencilWrite": false,
+          "stencilWriteMask": 255,
+          "stencilFunc": 519,
+          "stencilRef": 0,
+          "stencilFuncMask": 255,
+          "stencilFail": 7680,
+          "stencilZFail": 7680,
+          "stencilZPass": 7680
+        }],
+      "object": {
+        "uuid": "812fe3e3-6a85-48c7-b482-b1a2c509b8a0",
+        "type": "Scene",
+        "name": "Scene",
+        "layers": 1,
+        "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+        "children": [
+          {
+            "uuid": "ef87ce37-1671-4e54-b136-e913ac171466",
+            "type": "Mesh",
+            "name": "Speaker",
+            "layers": 1,
+            "matrix": [0.4, 0, 0, 0, 0, 4.4408920985006264e-17, -0.2, 0, 0, 0.4, 8.881784197001253e-17, 0, 0.02045559313496015, 0.41354635207448176, 0.5250955442035501, 1],
+            "geometry": "dfd92a2f-9e92-4540-a77b-d8202b478552",
+            "material": "d8a613f6-1d20-4382-9bbe-b316dda76388",
+            "children": [
+              {
+                "uuid": "5f75fdd6-6950-405c-92fe-5792b6bf1169",
+                "type": "Mesh",
+                "name": "Lathe",
+                "layers": 1,
+                "matrix": [0.9, 0, 0, 0, 0, 0.22, 0, 0, 0, 0, 0.9, 0, 0, 0.023684673747186857, -2.168404344971009e-18, 1],
+                "geometry": "499a8979-443a-49fe-a8a6-245fb44b7881",
+                "material": "7ea2e386-d78d-45ad-a6d1-7b679b2d6caa"
+              },
+              {
+                "uuid": "0a4d2e20-8fb3-4c93-bc88-8dca56fd745e",
+                "type": "Mesh",
+                "name": "Sphere",
+                "layers": 1,
+                "matrix": [0.15, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0.15, 0, 0, 0.11833951740573334, -1.1926223897340549e-17, 1],
+                "geometry": "a1074102-8034-4439-9497-41e5e0d5b469",
+                "material": "6d1461bf-bed9-4f65-87d1-19e850e4cd62"
+              }]
+          },
+          {
+            "uuid": "89235af4-a8f8-448f-a4e0-64f6baad30c4",
+            "type": "Group",
+            "name": "Motor",
+            "layers": 1,
+            "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+            "children": [
+              {
+                "uuid": "8bf04414-347c-47ef-9312-65940c7e34e0",
+                "type": "Mesh",
+                "name": "Body",
+                "layers": 1,
+                "matrix": [0.5, 0, 0, 0, 0, 1.5, 0, 0, 0, 0, 0.5, 0, 0, 0.75, 0, 1],
+                "geometry": "6c49412e-9db2-42ac-b27d-5b476abc78ca",
+                "material": "acbfdb64-9d38-4d7e-b9d9-b1447a16d008"
+              },
+              {
+                "uuid": "7488d5af-1a52-45be-8a19-2352f2bff8a1",
+                "type": "Mesh",
+                "name": "Base",
+                "layers": 1,
+                "matrix": [1, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 1, 0, 0, -0.003396593768489553, 0, 1],
+                "geometry": "6c49412e-9db2-42ac-b27d-5b476abc78ca",
+                "material": "acbfdb64-9d38-4d7e-b9d9-b1447a16d008"
+              },
+              {
+                "uuid": "8dc766f7-8717-4f09-a3ae-655810acba0d",
+                "type": "Mesh",
+                "name": "MotorHeadBase",
+                "layers": 1,
+                "matrix": [0.2, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0.2, 0, 0, 1.4978181152351315, 0, 1],
+                "geometry": "6c49412e-9db2-42ac-b27d-5b476abc78ca",
+                "material": "e3f035f5-a75a-417f-86b9-ac14ea2a49e8"
+              },
+              {
+                "uuid": "35ce1c23-89e4-475a-b247-0e0c57c4d177",
+                "type": "Mesh",
+                "name": "MotorHeadShaft",
+                "layers": 1,
+                "matrix": [0.1, 0, 0, 0, 0, 0.19069951414093128, 0, 0, 0, 0, 0.1, 0, 0, 1.621545421661971, 0, 1],
+                "geometry": "6c49412e-9db2-42ac-b27d-5b476abc78ca",
+                "material": "b16f4fbb-decb-44de-bb86-87c7f5375ed8"
+              },
+              {
+                "uuid": "8e7104d1-c664-430c-8179-7e7558b9ee0d",
+                "type": "Mesh",
+                "name": "MotorHead",
+                "layers": 1,
+                "matrix": [0.12, 0, 0, 0, 0, 0.22, 0, 0, 0, 0, 0.12, 0, 0, 1.7489179081303405, 0, 1],
+                "geometry": "6c49412e-9db2-42ac-b27d-5b476abc78ca",
+                "material": "e3f035f5-a75a-417f-86b9-ac14ea2a49e8"
+              }]
+          },
+          {
+            "uuid": "0f5e115a-c02c-4752-acea-ee012efaba4f",
+            "type": "Group",
+            "name": "Shaft",
+            "layers": 1,
+            "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.005214198521231617, 1.7471431031639373, 0, 1],
+            "children": [
+              {
+                "uuid": "9d909460-1baa-4823-9c7b-72723dd2d861",
+                "type": "Mesh",
+                "name": "Shaft",
+                "layers": 1,
+                "matrix": [1.9984014443252817e-17, 0.09, 0, 0, -1.2, 2.6645352591003756e-16, 0, 0, 0, 0, 0.09, 0, 0.4392292888584032, 0, 0, 1],
+                "geometry": "f5e92a0c-0bc3-4668-a734-614d05e5f43d",
+                "material": "7b80c620-2150-47dd-9a8f-be7e2f52f38d"
+              },
+              {
+                "uuid": "b58b0aa5-9a28-4dc0-9e93-05f6a7e349d9",
+                "type": "Mesh",
+                "name": "ShaftHead",
+                "layers": 1,
+                "matrix": [2.6645352591003756e-17, 0.12, 0, 0, -0.22, 4.884981308350689e-17, 0, 0, 0, 0, 0.12, 0, 1.0470348327559567, -0.002298968171200899, 0, 1],
+                "geometry": "6c49412e-9db2-42ac-b27d-5b476abc78ca",
+                "material": "e3f035f5-a75a-417f-86b9-ac14ea2a49e8"
+              },
+              {
+                "uuid": "7fadac70-9d0b-46e4-987b-61359fd59ea1",
+                "type": "Group",
+                "name": "Arm",
+                "layers": 1,
+                "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1.0479551626286776, 0.006542194474872254, 0, 1],
+                "children": [
+                  {
+                    "uuid": "f3edcd5d-11e4-477a-84c9-3d16672ba3a2",
+                    "type": "Mesh",
+                    "name": "Shaft",
+                    "layers": 1,
+                    "matrix": [0.09, 0, 0, 0, 0, 1.3, 0, 0, 0, 0, 0.09, 0, 0, -0.4767164440704932, 0, 1],
+                    "geometry": "33dd0357-46d4-447c-a536-f7842bf464cb",
+                    "material": "7af2b004-9de2-4b51-87bf-f28c34f2acc6"
+                  },
+                  {
+                    "uuid": "2da1f361-f517-488c-8e24-e3d2d54c6e4a",
+                    "type": "Mesh",
+                    "name": "Sphere",
+                    "layers": 1,
+                    "matrix": [0.09, 0, 0, 0, 0, 0.09, 0, 0, 0, 0, 0.09, 0, 0, -1.1248190108807734, 0, 1],
+                    "geometry": "8ea9db5e-956d-4ab5-a95e-b820f6bbc81f",
+                    "material": "3b7f6360-6a15-4969-880b-856bba7fe23a"
+                  }]
+              }]
+          },
+          {
+            "uuid": "92394702-97d5-49d8-8d4c-d45fde4057fc",
+            "type": "Mesh",
+            "name": "EnvBox",
+            "receiveShadow": true,
+            "layers": 1,
+            "matrix": [10, 0, 0, 0, 0, 10, 0, 0, 0, 0, 10, 0, 0, 5, 0, 1],
+            "geometry": "c22005b3-5691-467f-b8cc-166cc9724f76",
+            "material": "fe8b6a96-1d29-4a99-a962-e305934e65de"
+          },
+          {
+            "uuid": "8c3ccba2-07ef-43ea-8746-60ef21385f9f",
+            "type": "PointLight",
+            "name": "Light",
+            "layers": 1,
+            "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 4, 0, 1],
+            "color": 16777215,
+            "intensity": 1,
+            "distance": 0,
+            "decay": 1,
+            "shadow": {
+              "camera": {
+                "uuid": "f9641a0a-cc73-4a3e-8b91-a0b22c48511a",
+                "type": "PerspectiveCamera",
+                "layers": 1,
+                "fov": 90,
+                "zoom": 1,
+                "near": 0.5,
+                "far": 500,
+                "focus": 10,
+                "aspect": 1,
+                "filmGauge": 35,
+                "filmOffset": 0
+              }
+            }
+          },
+          {
+            "uuid": "e5fd9f5b-0988-45bf-abea-1d7400fbb5b8",
+            "type": "PerspectiveCamera",
+            "name": "Observer",
+            "layers": 1,
+            "matrix": [1, 0, 0, 0, 0, 0.7431448254773942, -0.6691306063588582, 0, 0, 0.6691306063588582, 0.7431448254773942, 0, 0, 5, 4, 1],
+            "fov": 50,
+            "zoom": 1,
+            "near": 0.1,
+            "far": 1000,
+            "focus": 10,
+            "aspect": 1.738197424892704,
+            "filmGauge": 35,
+            "filmOffset": 0
+          },
+          {
+            "uuid": "6183090c-96b2-4e2e-a996-83148e4c42ac",
+            "type": "Group",
+            "name": "Led",
+            "layers": 1,
+            "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1.9050824103405302, 0, 1],
+            "children": [
+              {
+                "uuid": "5845567e-c5ca-4aea-a788-c6d6e0986fb8",
+                "type": "PointLight",
+                "name": "LedLight",
+                "layers": 1,
+                "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                "color": 7590422,
+                "intensity": 10,
+                "distance": 2,
+                "decay": 10,
+                "shadow": {
+                  "camera": {
+                    "uuid": "d3a693fd-adb5-42d5-bb34-4174e95a5866",
+                    "type": "PerspectiveCamera",
+                    "layers": 1,
+                    "fov": 90,
+                    "zoom": 1,
+                    "near": 0.5,
+                    "far": 500,
+                    "focus": 10,
+                    "aspect": 1,
+                    "filmGauge": 35,
+                    "filmOffset": 0
+                  }
+                }
+              },
+              {
+                "uuid": "d890defc-9dd3-42f9-8770-62a289341f59",
+                "type": "Mesh",
+                "name": "LedHead",
+                "layers": 1,
+                "matrix": [0.03, 0, 0, 0, 0, 0.03, 0, 0, 0, 0, 0.03, 0, 0, 0, 0, 1],
+                "geometry": "5cc8e8e0-4311-47ef-8ff4-7dfd97bbc172",
+                "material": "085ce84d-849a-4389-b879-9d4a1ac8b800"
+              },
+              {
+                "uuid": "6d569974-87fe-4228-83af-158c4dff8826",
+                "type": "Mesh",
+                "name": "LedBody",
+                "layers": 1,
+                "matrix": [0.03, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0.03, 0, 0, -0.049443906342966804, 0, 1],
+                "geometry": "be44a81a-f1ca-4dbe-9046-e9c28639757a",
+                "material": "b318c88e-3cbe-4f4f-ad3b-910238c9aed3"
+              }]
+          }]
+      }
+    };
+  </script>
+
+  <script>
+    // ----------------------------------------------------------------
+    // -- Config --
+    const SOCKET_URL = "ws://localhost:5555/pendulum"; // URL with port for the WebSocket connection
+    const BEEPS = false; // If true speaker will produce short beeps on rising flanks in the speaker signal, square wave signal otherwise
+
+    // ----------------------------------------------------------------
+    // -- Internal state --
+    const neutralState = {
+      time: 0.0,
+      ptime: 0.0,
+      led: false,
+      speaker: false,
+      theta: Math.PI,
+      phi: 0,
+      control: 0,
+      energy: 0
+    };
+
+    let connection = undefined; // The websocket connection
+    let mute = true; // Sound on/off
+    let usePTime = false; // Toggle between physical and logical time
+    let chartControl = true; // Model applies state based on chart hovering
+
+    let play = false; // Indicated live simulation or playing recorded data
+    let playIdx = 0;
+    let playbackTick = 0;
+
+    let state = neutralState; // The current state of the model
+    let history = [];
+
+
+    // ----------------------------------------------------------------
+    // -- 3D Model --
+
+    const loader = new THREE.ObjectLoader();
+    const scene = loader.parse(SCENE_DATA);
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true
+    });
+
+    // Setup 3d view
+    const modelDiv = document.getElementById("3d");
+    modelDiv.appendChild(renderer.domElement);
+
+    // Setup camera
+    const camera = scene.getObjectByName("Observer");
+
+    /**
+     * Adjust the 3d perspective to the current window size.
+     */
+    function resizeModel() {
+      renderer.setSize(modelDiv.clientWidth, modelDiv.clientHeight);
+      camera.aspect = modelDiv.clientWidth / modelDiv.clientHeight;
+      camera.updateProjectionMatrix();
+    }
+
+    // Setup animation
+    const shaft = scene.getObjectByName("Shaft");
+    const arm = scene.getObjectByName("Arm");
+    const ledLight = scene.getObjectByName("LedLight");
+    const ledBody = scene.getObjectByName("LedBody");
+    const ledHead = scene.getObjectByName("LedHead");
+
+    function animate(timestamp) {
+      requestAnimationFrame(animate);
+
+      if (state) {
+        // Update model
+        shaft.rotation.y = state.phi;
+        // Inversed orientation in the 3d model: zero is down, Pi is up and moving direction is reversed
+        arm.rotation.x = -(state.theta - Math.PI);
+
+        ledLight.visible = !!state.led;
+        ledBody.material.emissiveIntensity = state.led;
+        ledHead.material.emissiveIntensity = state.led;
+
+        // Update sound
+        updateSoundFreq();
+        
+        if (play) {
+          if (connection) {
+            syncCharts(); // Update charts if live
+          } else {
+            updatePlayback(); // Update playback
+          }
+        }
+      }
+
+      renderer.render(scene, camera);
+    };
+
+
+    // ----------------------------------------------------------------
+    // -- Sound --
+
+    window.AudioContext = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioContext();
+
+    const speaker = ctx.createOscillator();
+    speaker.type = "square";
+    speaker.frequency.value = 0;
+
+    const volumeDefault = 0.3;
+    const volume = ctx.createGain();
+    volume.gain.value = volumeDefault;
+
+    speaker.connect(volume);
+    volume.connect(ctx.destination);
+    // Speaker will be started and stopped by mute button
+
+    /**
+     * Update the sound frequency.
+     */
+    function updateSoundFreq() {
+      if (BEEPS && history.length > 0) {
+        // Start a beep
+        speaker.frequency.value = state.speaker && !(history.slice(-1) == state) ? 300 : 0;
+      } else {
+        if (state.time == 0) {
+          speaker.frequency.value = 0;
+        } else {
+          // Compute frequency by determining the length of the current wave cycle
+          let hilo = state.speaker;
+          let idx = history.indexOf(state);
+          // If live, search for last cycle
+          if (connection && play) {
+            while (idx > 0 && history[idx - 1].speaker == hilo) { idx-- }
+            idx--;
+            hilo = !hilo;
+          }
+          if (idx > 0) {
+            left = idx;
+            while (left > 0 && history[left - 1].speaker == hilo) { left-- }
+            right = idx;
+            while (right + 1 < history.length && history[right + 1].speaker == hilo) { right++ }
+            right++;
+            if (right < history.length) {
+              let rTime = usePTime ? history[right].ptime : history[right].time
+              let lTime = usePTime ? history[left].ptime : history[left].time
+              speaker.frequency.value = 1 / ((rTime - lTime) * 2);
+            }
+          }
+        }
+      }
+    }
+
+
+    // ----------------------------------------------------------------
+    // -- Charts --
+
+    const cursorConfig = {
+      lock: false,
+      focus: {
+        prox: 0,
+      },
+      y: false,
+      sync: {
+        key: "sync",
+        setSeries: false,
+      },
+      points: {
+        show: false,
+      },
+    };
+    const chartPadding = [10, 20, 0, 0];
+
+    const anglesOptions = {
+      width: 400,
+      height: 100,
+      cursor: cursorConfig,
+      series: [
+        {
+          label: "Time",
+          value: (u, v) => v == null ? "-" : (v * 1000).toFixed(0) + " msec",
+          points: {
+            show: false,
+          },
+        },
+        {
+          label: "Theta",
+          value: (u, v) => v == null ? "-" : (v / Math.PI).toFixed(2) + " \u03C0",
+          stroke: "red",
+          width: 1.5,
+          points: {
+            show: false,
+          },
+        },
+        {
+          label: "Phi",
+          value: (u, v) => v == null ? "-" : (v / Math.PI).toFixed(2) + " \u03C0",
+          stroke: "blue",
+          width: 1.5,
+          points: {
+            show: false,
+          },
+        },
+      ],
+      scales: {
+        x: {
+          time: false,
+        },
+      },
+      padding: chartPadding,
+      hooks: {
+        setCursor: [(plot) => {
+          if (chartControl) {
+            // sync model to chart hovering
+            hoverState = history[plot.legend.idx];
+            if (hoverState) {
+              state = hoverState;
+            }
+          }
+        }],
+      },
+    };
+    const anglesChart = new uPlot(anglesOptions, [[0], [0], [0]], document.querySelector("#angles-chart"));
+
+    const ledOptions = {
+      width: 400,
+      height: 100,
+      cursor: cursorConfig,
+      series: [
+        {
+          label: "Time",
+          value: (u, v) => v == null ? "-" : (v * 1000).toFixed(0) + " msec",
+          points: {
+            show: false,
+          },
+        },
+        {
+          label: "LED",
+          value: (u, v) => v == null ? "-" : !!v,
+          stroke: "green",
+          points: {
+            show: false,
+          },
+        },
+      ],
+      scales: {
+        x: {
+          time: false,
+        },
+      },
+      padding: chartPadding,
+    };
+    const ledChart = new uPlot(ledOptions, [[0], [0]], document.querySelector("#led-chart"));
+
+    const speakerOptions = {
+      width: 400,
+      height: 100,
+      cursor: cursorConfig,
+      series: [
+        {
+          label: "Time",
+          value: (u, v) => v == null ? "-" : (v * 1000).toFixed(0) + " msec",
+          points: {
+            show: false,
+          },
+        },
+        {
+          label: "Speaker",
+          value: (u, v) => v == null ? "-" : !!v,
+          stroke: "black",
+          width: 0.4,
+          points: {
+            show: false,
+          },
+        },
+        {
+          label: "Frequency",
+          value: (u, v) => v == null ? "-" : v.toFixed(1) + " Hz",
+          stroke: "magenta",
+          width: 1.5,
+          points: {
+            show: false,
+          },
+        },
+      ],
+      scales: {
+        x: {
+          time: false,
+        },
+        y: {
+          range: (self, fromMin, fromMax) => [
+            0,
+            usePTime ? (fromMax < 200 ? fromMax : 200) : 125,
+          ],
+        }
+      },
+      padding: chartPadding,
+    };
+    const speakerChart = new uPlot(speakerOptions, [[0], [0], [0]], document.querySelector("#speaker-chart"));
+
+    const controlOptions = {
+      width: 400,
+      height: 100,
+      cursor: cursorConfig,
+      series: [
+        {
+          label: "Time",
+          value: (u, v) => v == null ? "-" : (v * 1000).toFixed(0) + " msec",
+          points: {
+            show: false,
+          },
+        },
+        {
+          label: "Control",
+          value: (u, v) => v == null ? "-" : v.toFixed(3),
+          stroke: "black",
+          width: 1.5,
+          points: {
+            show: false,
+          },
+        },
+        {
+          label: "Energy",
+          value: (u, v) => v == null ? "-" : v.toFixed(3),
+          stroke: "orange",
+          width: 1.5,
+          points: {
+            show: false,
+          },
+        },
+      ],
+      scales: {
+        x: {
+          time: false,
+        },
+      },
+      padding: chartPadding,
+    };
+    const controlChart = new uPlot(controlOptions, [[0], [0], [0]], document.querySelector("#control-chart"));
+
+    /**
+     * Create data for the angles with adjusted orientation.
+     */
+    function angleData() {
+      let adjust = (a) => {
+        if (Math.abs(a) > Math.PI) {
+          if (a < 0) {
+            return Math.PI + (a + Math.PI);
+          } else {
+            return -Math.PI + (a - Math.PI);
+          }
+        }
+        return a;
+      };
+      return [
+        history.map(s => usePTime ? s.ptime : s.time),
+        history.map(s => adjust(s.theta)),
+        history.map(s => adjust(s.phi)),
+      ];
+    }
+
+    /**
+     * Create step line data for the led.
+     */
+    function ledData() {
+      let t = [];
+      let v = [];
+      for (let i = 0; i < history.length; i++) {
+        let time = usePTime ? history[i].ptime : history[i].time;
+        if (i > 0 && history[i - 1].led != history[i].led) {
+          t.push(time);
+          v.push(history[i - 1].led ? 1 : 0);
+        }
+        t.push(time);
+        v.push(history[i].led ? 1 : 0);
+      }
+      return [t, v];
+    }
+
+    /**
+     * Create step line data for the speaker signal and computes the frequency.
+     */
+    function speakerData() {
+      let t = [];
+      let v = [];
+      let f = [];
+      let lastChange = usePTime ? history[0].ptime : history[0].time;
+      let freq = null;
+      for (let i = 0; i < history.length; i++) {
+        let time = usePTime ? history[i].ptime : history[i].time;
+        if (i > 0 && history[i - 1].speaker != history[i].speaker) {
+          t.push(time);
+          v.push(history[i - 1].speaker ? 124 : 0);
+          f.push(freq);
+          // new freq
+          let cycle = time - lastChange;
+          freq = cycle > 0.0001 ? 1 / (cycle * 2) : null;
+          lastChange = time;
+        }
+        t.push(time);
+        v.push(history[i].speaker ? 124 : 0);
+        f.push(freq);
+      }
+      return [t, v, f];
+    }
+
+    /**
+     * Update the charts based on the history.
+     */
+    function syncCharts() {
+      if (history.length > 0) {
+        anglesChart.setData(angleData());
+        ledChart.setData(ledData());
+        speakerChart.setData(speakerData());
+        controlChart.setData([
+          history.map(s => usePTime ? s.ptime : s.time),
+          history.map(s => s.control),
+          history.map(s => s.energy),
+        ]);
+      } else {
+        anglesChart.setData([[0], [0], [0]]);
+        ledChart.setData([[0], [0], [0]]);
+        speakerChart.setData([[0], [0], [0]]);
+        controlChart.setData([[0], [0], [0]]);
+      }
+    };
+
+    /**
+     * Adjust size of charts based on available space.
+     */
+    function resizeCharts() {
+      const w = document.querySelector("#charts").offsetWidth;
+      const h = window.innerHeight - disturbanceDiv.offsetHeight - controlDiv.offsetHeight;
+      anglesChart.setSize({
+        width: w,
+        height: h * 0.35,
+      });
+      ledChart.setSize({
+        width: w,
+        height: h * 0.16,
+      });
+      speakerChart.setSize({
+        width: w,
+        height: h * 0.17,
+      });
+      controlChart.setSize({
+        width: w,
+        height: h * 0.3,
+      });
+    }
+
+
+    // ----------------------------------------------------------------
+    // -- Control --
+    const controlDiv = document.getElementById("controls");
+    const playBtn = document.getElementById("play");
+    const muteBtn = document.getElementById("mute");
+    const timeBtn = document.getElementById("time-type");
+    const timeSlider = document.getElementById("time-slider");
+    const connectBtn = document.getElementById("connect");
+    const loadCsvBtn = document.getElementById("load");
+    const saveCsvBtn = document.getElementById("save");
+    const input = document.getElementById("file-input");
+    const disturbanceDiv = document.getElementById("disturbance");
+    const disturbBtn = document.getElementById("disturb");
+    const disturbSlider = document.getElementById("disturb-slider");
+    const disturbInfo = document.getElementById("disturb-value");
+
+    // - Helper -
+
+    /**
+     * Ensure proper values in state.
+     */
+    function sanitizeState(s) {
+      s.time = parseFloat(s.time);
+      s.ptime = parseFloat(s.ptime);
+      s.led = parseInt(s.led);
+      s.speaker = parseInt(s.speaker);
+      s.control = parseFloat(s.control);
+      s.energy = parseFloat(s.energy);
+
+      s.phi_raw = parseFloat(s.phi);
+      s.phi = s.phi_raw % (2 * Math.PI); // Normalize angle
+      s.theta_raw = parseFloat(s.theta);
+      s.theta = s.theta_raw % (2 * Math.PI); // Normalize angle
+
+      return s;
+    }
+
+    /**
+     * Toggle visibility of elements.
+     */
+    function show(elem, show) {
+      if (show) {
+        elem.style.display = null;
+      } else {
+        elem.style.display = "none";
+      }
+    }
+
+    // - Play/Pause -
+
+    playBtn.disabled = true; // Disable at start
+
+    /**
+     * Update play button label according to state.
+     */
+    function updatePlayBtnLabel() {
+      if (play) {
+        playBtn.textContent = "Pause";
+      } else {
+        playBtn.textContent = "Play";
+      };
+    }
+
+    /**
+     * Update the state based on the passed playback time.
+     * For non-live playback.
+     */
+    function updatePlayback() {
+      if (play) {
+        if (playIdx + 1 < history.length) { // Next
+          oldStateTime = state.time;
+          nextTime = (oldStateTime * 1000) + (Date.now() - playbackTick);
+          nextIdx = playIdx
+
+          // Search next state
+          while (nextIdx + 1 < history.length && (history[nextIdx + 1].time * 1000) <= nextTime) { nextIdx++ }
+
+          if (nextIdx != playIdx) {
+            // Apply next state
+            playIdx = nextIdx;
+            state = history[nextIdx];
+            timeSlider.value = nextIdx;
+            playbackTick += (state.time - oldStateTime) * 1000;
+          }
+        } else { // End of playback
+          play = false;
+          chartControl = true;
+          updatePlayBtnLabel();
+        }
+      }
+    }
+
+    // Play button handler
+    playBtn.addEventListener("click", (e) => {
+      if (connection) { // live
+        play = !play;
+        chartControl = !play;
+        sendPause(!play); // pause simulation
+      } else { // playback
+        if (history.length > 0) {
+          play = !play;
+          chartControl = !play;
+          if (play) {
+            // start playback
+            state = history[playIdx];
+            playbackTick = Date.now();
+          }
+        }
+      }
+      updatePlayBtnLabel();
+    });
+
+    // - Mute/Unmute -
+    muteBtn.textContent = "Sound " + (mute ? "On": "Off"); // Set initial label
+
+    muteBtn.addEventListener("click", (e) => {
+      mute = !mute;
+      if (mute) {
+        muteBtn.textContent = "Sound On";
+        speaker.stop();
+      } else {
+        muteBtn.textContent = "Sound Off";
+        speaker.start();
+      }
+    });
+
+    // - Toggle logical/physical time -
+    timeBtn.textContent = "Use " + (usePTime ? "Logical": "Physical") + " Time"; // Set initial label
+
+    timeBtn.addEventListener("click", (e) => {
+      usePTime = !usePTime;
+      timeBtn.textContent = "Use " + (usePTime ? "Logical": "Physical") + " Time";
+      syncCharts();
+    });
+
+    // - Connect to live simulation -
+
+    connectBtn.addEventListener("click", (e) => {
+      // Clear history
+      let hadHistory = history.length;
+      history = [];
+      state = neutralState;
+      play = false;
+      playIdx = 0;
+
+      // Update UI
+      timeSlider.max = 0;
+      timeSlider.value = 0;
+      show(timeSlider, false);
+      if (hadHistory) {
+        syncCharts();
+      }
+      playBtn.disabled = true; // Paused by default
+      updatePlayBtnLabel();
+
+      connection = new WebSocket(SOCKET_URL);
+
+      connection.onclose = (e) => {
+        console.log("Websocket connection closed");
+        connection = null;
+
+        // Update UI
+        show(connectBtn, true);
+        show(loadCsvBtn, true);
+        show(saveCsvBtn, false);
+        show(disturbanceDiv, false);
+        resizeCharts();
+      };
+
+      connection.onerror = (e) => {
+        console.log(e);
+        connection = null;
+
+        // Update UI
+        show(connectBtn, true);
+        show(loadCsvBtn, true);
+        show(saveCsvBtn, false);
+        show(disturbanceDiv, false);
+        resizeCharts();
+      };
+
+      connection.onopen = (e) => {
+        console.log("Websocket connection open");
+
+        // Update UI
+        playBtn.disabled = false;
+        show(connectBtn, false);
+        show(loadCsvBtn, false);
+        show(saveCsvBtn, true);
+        show(disturbanceDiv, true);
+        resizeCharts();
+      };
+
+      connection.onmessage = (msg) => {
+        if (msg && msg.data) {
+          let s = sanitizeState(JSON.parse(msg.data)); // parse
+          history.push(s);
+
+          // Update state
+          if (play) {
+            state = s;
+            playIdx = history.length - 1;
+            timeSlider.value = playIdx;
+          }
+          
+          // Update UI
+          timeSlider.max = history.length - 1;
+        }
+      };
+    });
+
+    /**
+     * Send pause signal to simulation.
+     */
+    function sendPause(pause) {
+      if (connection) {
+        connection.send(JSON.stringify({ pause: pause }));
+      }
+    }
+
+    /**
+     * Send disturbance to simulation.
+     */
+    function sendDisturbance(value) {
+      if (connection) {
+        connection.send(JSON.stringify({ disturbance: value }));
+      }
+    }
+
+    // - Load CSV -
+
+    loadCsvBtn.addEventListener("click", (e) => {
+      input.click(); // open file selection dialog
+    });
+
+    // load data from selected file
+    input.onchange = _ => {
+      const file = input.files[0];
+      const reader = new FileReader();
+      reader.onload = (e) => loadCsvData(e.target.result);
+
+      reader.readAsText(file);
+    };
+
+    /**
+     * Parse and load CSV data.
+     */
+    function loadCsvData(text) {
+      const headers = text.slice(0, text.indexOf("\n")).split(",").map((h) => h.toLowerCase());
+      const rows = text.slice(text.indexOf("\n") + 1).split("\n");
+      const data = rows.map((row) => {
+        const values = row.split(",");
+        const elem = headers.reduce((obj, name, idx) => {
+          obj[name] = values[idx];
+          return obj;
+        }, {});
+        return sanitizeState(elem);
+      }).filter(e => e.time >= 0);
+
+      // Apply data
+      history = data;
+      state = history[0];
+      play = false;
+      playIdx = 0;
+
+      // Update UI
+      updatePlayBtnLabel();
+      playBtn.disabled = false;
+      timeSlider.max = history.length - 1;
+      timeSlider.value = 0;
+      show(timeSlider, true);
+      show(connectBtn, true);
+      show(loadCsvBtn, true);
+      show(saveCsvBtn, false);
+      show(disturbanceDiv, false);
+      resizeCharts();
+      syncCharts();
+    }
+
+    // - Save CSV -
+
+    show(saveCsvBtn, false); // hide if not live
+
+    saveCsvBtn.addEventListener("click", (e) => {
+      var blob = new Blob(
+        ["Time,PTime,LED,Speaker,Control,Energy,Theta,dTheta,Phi,dPhi\n"].concat(
+          history.map((s) => [s.time, s.ptime, s.led, s.speaker, s.control, s.energy, s.theta_raw, s.dtheta, s.phi_raw, s.dphi].join(",") + "\n")
+        ), { type: "text/plain;charset=utf-8" }
+      );
+      saveAs(blob, "pendulum.csv");
+    });
+
+    // - Playback slider -
+
+    show(timeSlider, false); // Hide in the absence of playback
+
+    timeSlider.oninput = _ => {
+      if (!connection || !play) {
+        // Control state
+        playIdx = parseInt(timeSlider.value);
+        state = history[playIdx];
+      }
+    };
+
+    // - Disturbance -
+
+    show(disturbanceDiv, false); // Hide if not connected
+
+    // Init disturbance
+    disturbSlider.min = 0;
+    disturbSlider.max = 1;
+    disturbSlider.value = 0.1;
+    disturbSlider.step = 0.1;
+    disturbInfo.textContent = disturbSlider.value;
+
+    disturbBtn.addEventListener("click", (e) => {
+      const d = parseFloat(disturbSlider.value);
+      if (d) {
+        // Disturbance is a direct addition to the angle
+        sendDisturbance(d * (Math.PI / 21));
+      }
+    });
+
+    disturbSlider.oninput = _ => {
+      // Synchronize text to slider value
+      disturbInfo.textContent = disturbSlider.value;
+    };
+
+
+    // ----------------------------------------------------------------
+    // Final setup
+
+    // Autoload data if provided by parameter
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('load')) {
+      fetch(params.get('load'))
+        .then(r => r.text())
+        .then(d => loadCsvData(d))
+        .catch(_ => console.error("Failed to load initial data."));
+    }
+    
+    // Show content
+    show(document.getElementById("loading"), false);
+    show(document.getElementById("main"), true);
+
+    // Initial layout
+    resizeModel();
+    resizeCharts();
+
+    // Ensure reactive layout
+    window.addEventListener("resize", _ => {
+      resizeModel();
+      resizeCharts();
+    });
+
+    // Start animation loop
+    animate();
+    
+  </script>
+</body>
+
+</html>

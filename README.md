@@ -1,1 +1,1 @@
-# Furuta Pendulum
+# Furuta Pendulum Visualization Preview

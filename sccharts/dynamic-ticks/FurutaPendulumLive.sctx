@@ -1,0 +1,75 @@
+#hostcode-c-header "#include \"time-util.h\""
+#hostcode-c-header "#include \"time-util.h\""
+
+import "./PendulumController.sctx"
+import "./PendulumSound.sctx"
+import "../PendulumSimulation.sctx"
+import "../VisualizationServer.sctx"
+
+/**
+ * This model of the Furuta pendulum control program sets up
+ * a WebSocket sever that will send the simulation data to
+ * a web visualization (visualization/visualization.html) for
+ * a live observation.
+ * The graphical frontend allows pausing the simulation and
+ * disturbing the pendulum.
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+@IntegerClockType "clock_time" // Set host type for clocks
+@DefaultSleep "SEC(10)" // Default sleep time, in case none is requested by the model itself
+@ClocksUseSD // Advanced composition support for clocks
+scchart FurutaPendulumLive {
+    input bool pause
+    input float disturbance
+
+    // Host function for time conversion
+    @Hide extern "MSEC" MSEC
+    @Hide extern "SEC" SEC
+
+    // Sample and simulation configuration
+    const float SPEED = 1 // Speed constant can be used to run the simulation in slow-motion.
+    const float SAMPLE_PERIOD = MSEC(5) * SPEED
+    
+    // Internal communication variables
+    float control
+    bool led, speaker
+    float energy
+    float theta, d_theta, phi, d_phi
+
+    region StopIfPaused {
+        // Suspend the execution of the simulation and controller when paused
+        suspend if pause
+
+        region Simulation {
+            initial state RunWithSampleRate {
+                // Pause simulation outside SAMPLE_PERIOD
+                @SoftReset
+                immediate period SAMPLE_PERIOD
+
+                region Pendulum {
+                    initial state Pendulum is PendulumSimulation(control, SAMPLE_PERIOD, disturbance, theta, d_theta, phi, d_phi)
+                }
+                region Energy {
+                    initial state Energy is PendulumEnergy(theta, d_theta, energy)
+                }
+            }
+        }
+        
+        region Controller {
+            initial state Run is PendulumController(theta, d_theta, phi, d_phi, control, led)
+        }
+        
+        region Sound {
+            initial state Run is PendulumSound(theta, speaker)
+        }
+    }
+
+    region Server {
+        initial state Server is VisualizationServer(
+          control, led, speaker, energy,
+          theta, d_theta, phi, d_phi,
+          pause
+        )
+    }
+}

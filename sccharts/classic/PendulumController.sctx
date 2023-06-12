@@ -1,0 +1,79 @@
+#resource "../../impl/behavior.h"
+#resource "../../impl/behavior.c"
+#hostcode-c "#include \"behavior.h\""
+
+/**
+ * This SCChart provides the control behavior for the Furuta pendulum
+ * motor and LED using only classical SCCharts elements and the msec
+ * input (multiform notion of time) to track time.
+ * 
+ * The control logic is factored out (impl/behavior.c) and is based
+ * on a Ptolemy II model constructed by Johan Eker and described 
+ * in this paper:
+ * J. Liu, J. Eker, J. W. Janneck, and E. A. Lee,
+ * “Realistic simulations of embedded control systems,”
+ * IFAC Proceedings Volumes, vol. 35, no. 1, pp. 391–396, 2002.
+ *
+ * Original adaption to C and LF by Edward A. Lee, see:
+ * https://github.com/lf-lang/examples-lingua-franca/tree/383e816627e2668330df3dfc08e7f4202461f42c/C/src/modal_models/FurutaPendulum
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+scchart PendulumController {
+    input float theta
+    input float d_theta
+    input float phi
+    input float d_phi
+    
+    input bool msec
+    
+    output float control = 0
+    output bool led = false
+    
+    // External functions for the behavior
+    @Hide extern "swingup_control" swingup_control
+    @Hide extern "exit_swingup" exit_swingup
+    @Hide extern "catch_control" catch_control
+    @Hide extern "exit_catch" exit_catch
+    @Hide extern "stabilize_control" stabilize_control
+    @Hide extern "exit_stabilize" exit_stabilize
+    
+    // Phi angle after Catch mode (required for Stabilize)
+    float catch_phi = 0
+    
+    @Layout[elk.direction] DOWN
+    region {
+        initial state SwingUp {
+            // Compute motor control response
+            // This is immediate it handle the response in the first tick
+            immediate during do control = swingup_control(theta, d_theta)
+        }
+        if exit_swingup(theta) 
+            do led = true 
+            go to Catch
+    
+        state Catch {
+            // Compute motor control response
+            during do control = catch_control(theta, d_theta, phi, d_phi)
+            
+            region LED {
+                initial state Toggle 
+                    if 15 msec // Toggle LED every 15 msec
+                        do led = !led
+                        go to Toggle
+            }
+        }
+        if exit_catch(d_phi) 
+            do catch_phi = phi; 
+               led = true 
+            go to Stabilize
+        
+        state Stabilize {
+            // Compute motor control response
+            during do control = stabilize_control(theta, d_theta, phi, d_phi, catch_phi)
+        }
+        if exit_stabilize(theta) 
+            do led = false 
+            go to SwingUp deferred // Deferred entry will supporess initial control response
+    }
+}

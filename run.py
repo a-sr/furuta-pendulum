@@ -4,6 +4,7 @@ import argparse
 import requests
 import subprocess
 import sys
+from glob import glob
 from os import mkdir, rename
 from os.path import join, isdir, isfile, dirname, splitext, basename, abspath
 
@@ -17,9 +18,7 @@ ALL = "all"
 ALL_SCC = "scchart"
 SCC_CLASSIC = "scchart-classic"
 SCC_DYN = "scchart-dynamic"
-SCC_OO = "scchart-dynamic-oo"
-SCC_DF = "scchart-dynamic-dataflow"
-SCC_SAMPLES = [SCC_CLASSIC, SCC_DYN, SCC_DF]
+SCC_SAMPLES = [SCC_CLASSIC, SCC_DYN]
 ALL_LF = "lf"
 LF_PLAIN = "lf-classic"
 LF_MODES = "lf-modes"
@@ -31,12 +30,15 @@ RUN_CHOICES = [ALL, ALL_SCC, ALL_LF] + SCC_SAMPLES + LF_SAMPLES
 # Files
 ROOT = dirname(abspath(__file__))
 SAMPLE_SOURCES = {
+    SCC_CLASSIC: join(ROOT, "sccharts/classic/FurutaPendulumSample.sctx"),
+    SCC_DYN: join(ROOT, "sccharts/dynamic-ticks/FurutaPendulumSample.sctx"),
     LF_PLAIN: join(ROOT, "lf/classic/FurutaPendulumSample.lf"),
     LF_MODES: join(ROOT, "lf/modes/FurutaPendulumSample.lf"),
     LF_MODES_NESTED: join(ROOT, "lf/modes-nested/FurutaPendulumSample.lf"),
     LF_EMBED: join(ROOT, "lf/scchart-embedded/FurutaPendulumSample.lf"),
 }
 LIVE_SOURCES = {
+    SCC_DYN: join(ROOT, "sccharts/dynamic-ticks/FurutaPendulumLive.sctx"),
     LF_MODES: join(ROOT, "lf/modes/FurutaPendulumLive.lf"),
 }
 
@@ -88,16 +90,16 @@ def main():
         elif args.model in SCC_SAMPLES or args.model in LF_SAMPLES:
             models = [args.model]
         else:
-            print(f"Unknown model {args.model}.",)
+            print(f"Unknown model {args.model}.")
             exit(-1)
 
         # Run models
         for model in models:
             if model not in SCC_SAMPLES and model not in LF_SAMPLES:
-                print(f"Unknown model name: {model}",)
+                print(f"Unknown model name: {model}")
                 exit(-2)
             elif model not in SAMPLE_SOURCES:
-                print(f"Model {model} does not support sampling.",)
+                print(f"Model {model} does not support sampling.")
                 exit(-3)
             
             if model in SCC_SAMPLES:
@@ -107,20 +109,20 @@ def main():
     elif args.type == LIVE:
         # Check support
         if not args.model or args.model == ALL or args.model == ALL_SCC or args.model == ALL_LF:
-            print(f"Specify a single model to run live.",)
+            print(f"Specify a single model to run live.")
             exit(-4)
-        elif args.model in SAMPLE_SOURCES:
+        elif args.model in LIVE_SOURCES:
             # Run model
             if args.model in SCC_SAMPLES:
                 run_ssc(args.model, False)
             else:
                 run_lf(args.model, False)
         else:
-            print(f"Model {args.model} does not support live simulation.",)
+            print(f"Model {args.model} does not support live simulation.")
             exit(-5)
 
     else:
-        print(f"Unknown run type {args.type}.",)
+        print(f"Unknown run type {args.type}.")
         exit(-6)
 
 
@@ -189,8 +191,9 @@ def run_ssc(model, sample):
             LIVE_MAIN,
             "-I", MAIN_DIR,
             TIME_UTIL,
-            "-I", FACIL_LIB,
-            FACIL_LIB + "/*.c",
+            "-I", join(FACIL_LIB, "include"),
+            *glob(join(FACIL_LIB, "src/*.c")),
+            "-pthread"
         ]
     name = splitext(basename(source))[0]
     bin_dir = join(wd, "bin")

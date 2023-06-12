@@ -5,7 +5,7 @@ import "../../sccharts/dynamic-ticks/PendulumSound.sctx"
 
 /**
  * This SCChart provides the control behavior for the Furuta pendulum
- * motor, LED, and sound using Timed SCCharts and dynamic ticks.
+ * motor, LED, and sound using timed SCCharts and dynamic ticks.
  * 
  * The control logic is factored out (impl/behavior.c) and is based
  * on a Ptolemy II model constructed by Johan Eker and described 

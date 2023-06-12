@@ -1,0 +1,90 @@
+#hostcode-c-header "#include \"time-util.h\""
+
+// If you want to run the sample in the KIELER simulation,
+// comment out the line above and comment in the lines below. 
+//#kicoenv {"de.cau.cs.kieler.simulation.comm.blacklist":["guard"]}
+//#hostcode-c-header "#include <stdint.h>"
+//#hostcode-c-header "typedef int64_t clock_time;"
+//#hostcode-c "#define MSEC(t) (t * 1000000LL)"
+//#hostcode-c "#define SEC(t) (t * 1000000000LL)"
+//#hostcode-c "#define time_elapsed() (0)"
+
+import "./PendulumController.sctx"
+import "./PendulumSound.sctx"
+import "../PendulumSimulation.sctx"
+import "../Output.sctx"
+
+/**
+ * This model of the Furuta pendulum control program conducts
+ * a 3 second simulation and stores the observed behavior in a
+ * separate file.
+ * It uses timed SCCharts and dynamic ticks to handle time. 
+ *
+ * The simulation and motor control logic is based on a Ptolemy II
+ * model constructed by Johan Eker and described in this paper:
+ * J. Liu, J. Eker, J. W. Janneck, and E. A. Lee,
+ * “Realistic simulations of embedded control systems,”
+ * IFAC Proceedings Volumes, vol. 35, no. 1, pp. 391–396, 2002.
+ *
+ * @author Alexander Schulz-Rosengarten
+ */
+@IntegerClockType "clock_time" // Set host type for clocks
+@DefaultSleep "SEC(10)" // Default sleep time, in case none is requested by the model itself
+@ClocksUseSD // Advanced composition support for clocks
+scchart FurutaPendulumSample {
+    // Indicate end of sample
+    output bool finished = false
+
+    // Host function for time conversion
+    @Hide extern "MSEC" MSEC
+    @Hide extern "SEC" SEC
+
+    // Sample and simulation configuration
+    const clock-time TIMEOUT = SEC(3)
+    const clock-time SAMPLE_PERIOD = MSEC(5)
+    
+    // Internal communication variables
+    float control
+    bool led, speaker
+    float energy
+    float theta, d_theta, phi, d_phi
+
+    // Timing control
+    clock time
+    during if time > TIMEOUT do finished = true // Stop sample after timeout
+    
+    region Simulation {
+        initial state RunWithSampleRate {
+            // Pause simulation outside SAMPLE_PERIOD
+            @SoftReset
+            immediate period SAMPLE_PERIOD
+
+            region Pendulum {
+                initial state PendulumSimulation is PendulumSimulation(control, SAMPLE_PERIOD, 0, theta, d_theta, phi, d_phi)
+            }
+            region Energy {
+                initial state PendulumEnergy is PendulumEnergy(theta, d_theta, energy)
+            }
+        }
+    }
+    
+    region Controller { 
+        initial state PendulumController is PendulumController(theta, d_theta, phi, d_phi, control, led)
+    }
+    
+    region Sound {
+        initial state PendulumSound is PendulumSound(theta, speaker)
+    }
+    
+    region Output {
+        float timeInSec = 0
+        // Time passed in seconds
+        during do timeInSec = time / `(double) SEC(1)`
+
+        initial state Output is Output(
+            control, led, speaker, energy,
+            theta, d_theta, phi, d_phi,
+            timeInSec, finished
+        )
+    }
+}

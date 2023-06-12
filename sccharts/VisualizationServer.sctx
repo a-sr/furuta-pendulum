@@ -1,0 +1,54 @@
+#resource "../impl/visualization.h"
+#resource "../impl/visualization.c"
+#hostcode-c "#include \"visualization.h\""
+#hostcode-c "#include \"live-main.h\""
+#hostcode-c "#include \"time-util.h\""
+
+/**
+ * This SCChart starts a sever that establishes connections to
+ * a web visualization (visualization/visualization.html) for
+ * a live observation and interaction with the pendulum.
+ * It allows pausing the simulation and disturbing the pendulum.
+ * 
+ * The server logic is factored out (impl/visualization.c) and 
+ * uses the facil.io library.
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+scchart VisualizationServer {
+    input float control
+    input bool led
+    input bool speaker
+    input float energy
+    
+    input float theta
+    input float d_theta
+    input float phi
+    input float d_phi
+    
+    input bool pause
+
+    // Host functions for the server
+    @Hide extern "start_server_async" start_server_async
+    @Hide extern "send_status" send_status
+    @Hide extern "time_elapsed" time_elapsed
+    @Hide extern "(double)" cast_double
+    @Hide extern "SEC" SEC
+
+    clock time
+    clock-time simTime = 0
+    clock-time simPTime = 0
+
+    // Start server
+    entry do start_server_async(`&callback_pause`, `NULL`, `&callback_disturbance`, `NULL`)
+
+    // Track simulation time only when unpaused and not in the tick of unpausing (big sleep time from pause itself)
+    during if !pause && !pre(pause) do simTime += (time - pre(time))
+    
+    immediate during if !pause && !pre(pause) do simPTime = time_elapsed() - time + simTime;
+        send_status(cast_double(simTime) / SEC(1), cast_double(simPTime) / SEC(1),
+            led, speaker, control, energy,
+            theta, d_theta, phi, d_phi
+        )
+
+}

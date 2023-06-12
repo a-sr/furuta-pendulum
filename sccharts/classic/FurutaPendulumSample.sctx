@@ -1,0 +1,98 @@
+#hostcode-c-header "#include \"time-util.h\""
+
+// If you want to run the sample in the KIELER simulation,
+// comment out the line above and comment in the lines below. 
+//#kicoenv {"de.cau.cs.kieler.simulation.comm.blacklist":["guard"]}
+//#hostcode-c-header "#include <stdint.h>"
+//#hostcode-c-header "typedef int64_t clock_time;"
+//#hostcode-c "#define MSEC(t) (t * 1000000LL)"
+//#hostcode-c "#define SEC(t) (t * 1000000000LL)"
+//#hostcode-c "#define time_elapsed() (0)"
+
+import "./PendulumController.sctx"
+import "./PendulumSound.sctx"
+import "../PendulumSimulation.sctx"
+import "../Output.sctx"
+
+/**
+ * This model of the Furuta pendulum control program conducts
+ * a 3 second simulation and stores the observed behavior in a
+ * separate file.
+ * It uses the multiform notion of time to handle time. 
+ *
+ * The simulation and motor control logic is based on a Ptolemy II
+ * model constructed by Johan Eker and described in this paper:
+ * J. Liu, J. Eker, J. W. Janneck, and E. A. Lee,
+ * “Realistic simulations of embedded control systems,”
+ * IFAC Proceedings Volumes, vol. 35, no. 1, pp. 391–396, 2002.
+ *
+ * @author Alexander Schulz-Rosengarten
+ */
+scchart FurutaPendulumSample {
+    // Indicate end of sample
+    output bool finished = false
+
+    // Host function for time conversion
+    @Hide extern "MSEC" MSEC
+
+    // This model will run in a dynamic tick environemt but
+    // will ignore this fact an enforce a 1 msec periodic
+    // execution.
+    input host "clock_time" deltaT
+    output host "clock_time" sleepT = MSEC(1)
+
+    // Sample and simulation configuration
+    const int TIMEOUT = 3000 // 3 sec
+    const int SAMPLE_TICKS = 5 // 5 msec
+    const float SAMPLE_PERIOD = MSEC(SAMPLE_TICKS)
+    
+    // Internal communication variables
+    float control
+    bool led, speaker
+    float energy
+    float theta, d_theta, phi, d_phi
+
+    // In this periodic execution, msec is always true
+    const bool msec = true 
+
+    // Timing control
+    int tick = 0
+    bool simulate = true
+    during do tick++ // Assuming one tick per microsecond
+    during if tick > TIMEOUT do finished = true // Stop sample after timeout
+    during do simulate = (tick % SAMPLE_TICKS) == 0 // Pause simulation outside sample_period
+    
+    region Simulation {
+        initial state RunWithSampleRate {
+            // Pause simulation outside sample_period
+            suspend if !simulate
+            
+            region Pendulum {
+                initial state PendulumSimulation is PendulumSimulation(control, SAMPLE_PERIOD, 0, theta, d_theta, phi, d_phi)
+            }
+            region Energy {
+                initial state PendulumEnergy is PendulumEnergy(theta, d_theta, energy)
+            }
+        }
+    }
+    
+    region Controller { 
+        initial state PendulumController is PendulumController(theta, d_theta, phi, d_phi, msec, control, led)
+    }
+    
+    region Sound {
+        initial state PendulumController is PendulumSound(theta, msec, speaker)
+    }
+    
+    region Output {
+        float time = 0
+        // Time passed in seconds
+        during do time = tick * 0.001
+
+        initial state Output is Output(
+            control, led, speaker, energy,
+            theta, d_theta, phi, d_phi,
+            time, finished
+        )
+    }
+}

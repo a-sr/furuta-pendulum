@@ -1,0 +1,36 @@
+#resource "../../impl/behavior.h"
+#resource "../../impl/behavior.c"
+#hostcode-c "#include \"behavior.h\""
+
+/**
+ * This SCChart produces a square wave sound signal relative to 
+ * the angle of the pendulum.
+ * The logic for determining the frequency is factored out
+ * (see impl/behavior.c).
+ * The model uses a clock from timed SCCharts and dynamic
+ * ticks.
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+scchart PendulumSound {
+    input float angle
+    output bool sound = true
+
+    // External funtion for the sound behavior
+    @Hide extern "sound_frequency" sound_frequency
+    // Host function for time conversion
+    @Hide extern "SEC" SEC
+
+    clock clk // Clock for time tracking
+    clock-time duration = 0 // Duration of a cycle
+
+    // Update cycle duration based on angle
+    immediate during do duration = SEC((1 / sound_frequency(angle)) / 2)
+
+    region {
+        initial state Alternate 
+            if clk >= duration // If reached duration...
+                do sound = !sound; clk = 0 // toggle and reset
+                go to Alternate
+    }
+}

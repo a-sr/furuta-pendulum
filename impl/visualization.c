@@ -6,7 +6,7 @@
 
 #include "visualization.h"
 #include <pthread.h>
-#include "libdump/include/http.h" // Actually ../facil.io/libdump, relativized for LF build infrastructure.
+#include "http.h" // Actually ../facil.io/libdump, relativized for LF build infrastructure.
 
 /** Configuration and state of the server. */
 struct {

@@ -1,0 +1,44 @@
+import "./PendulumController.sctx"
+import "./PendulumSound.sctx"
+import "../PendulumHardware.sctx"
+
+/**
+ * Generic setup of a Furuta pendulum control program
+ * with motor, LED, and sound output.
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+scchart FurutaPendulum {    
+    // Internal communication variables
+    float theta, d_theta, phi, d_phi, control
+    bool led, sound, msec
+    
+    region Angles {
+        initial state Angles is Angles(theta, d_theta, phi, d_phi)
+    }
+
+    region Time {
+        initial state Time is Time(msec)
+    }
+    
+    region Sound {
+        initial state PendulumSound is PendulumSound(theta, msec, sound)
+    }
+        
+    region Controller {        
+        initial state PendulumController is PendulumController(theta, d_theta, phi, d_phi, msec, control, led)
+    }
+    
+    region Speaker {
+        initial state Speaker is Speaker(sound)
+    }
+    
+    region LED {
+        initial state LED is LED(led)
+    }
+    
+    region Motor {
+        initial state Motor is Motor(control)
+    }
+    
+}

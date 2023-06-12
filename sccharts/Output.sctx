@@ -1,0 +1,52 @@
+#hostcode-c "#include <stdio.h>"
+#hostcode-c "#include <stdlib.h>"
+
+/**
+ * Prints the outputs of the Furuta pendulum simulation
+ * into a CSV file.
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+scchart Output {
+    input float control
+    input bool led
+    input bool speaker
+    input float energy
+    
+    input float theta
+    input float d_theta
+    input float phi
+    input float d_phi
+    
+    input float time
+    input bool close
+    
+    const string filename = "pendulum-sample.csv"
+    
+    host "FILE*" file = `NULL`
+    
+    // Host functions for file handling
+    @Hide extern "fopen" fopen
+    @Hide extern "fclose" fclose
+    @Hide extern "fprintf" fprintf
+    
+    initial state Open {
+        entry do file = fopen(filename, "w")
+    } immediate if file != `NULL` go to Write
+      immediate do print("Failed to open file: ", filename) go to Error
+    
+    state Write {
+        // CSV header
+        entry do fprintf(file, "Time,PTime,LED,Speaker,Control,Energy,Theta,dTheta,Phi,dPhi\\n")
+        // New entry per tick
+        immediate during if !close 
+            do fprintf(file, "%.6f,%.6f,%d,%d,%.8f,%.8f,%.8f,%.8f,%.8f,%.8f\\n", 
+                    time, `((double) time_elapsed()) / SEC(1)`,
+                    led, speaker, control, energy,
+                    theta, d_theta, phi, d_phi
+                )
+    } if close do fclose(file) go to Closed
+
+    state Closed
+    state Error
+}

@@ -1,0 +1,70 @@
+/**
+ * Mock SCCharts for a hardware setup of a Furuta pendulum.
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+
+scchart Angles {
+    output float theta, d_theta
+    output float phi, d_phi
+    
+    extern "readHardware" read
+    
+    // Read sensor values
+    immediate during
+        do theta = read("theta");
+           d_theta = read("d_theta");
+           phi = read("phi");
+           d_phi = read("d_phi")
+}
+
+scchart Time {
+    output bool msec = false
+
+    const int MSEC_IN_NANO = 1000000
+
+    int passed_time = 0
+    int last_tick = time()
+
+    extern "time_current" time
+
+    // Track time
+    during do passed_time += time() - last_tick; 
+        last_tick = time()
+    
+    initial state Wait
+        immediate if passed_time >= MSEC_IN_NANO
+            do passed_time -= MSEC_IN_NANO; msec = true
+            go to MSecPassed
+
+    state MSecPassed
+        do msec = false
+            go to Wait 
+}
+
+scchart LED {
+    input bool on
+    
+    extern "writeHardware" write
+    
+    // Set LED signal
+    immediate during do write("led", on)
+}
+
+scchart Speaker {
+    input bool wave_signal
+    
+    extern "writeHardware" write
+    
+    // Set sound signal
+    immediate during do write("speaker", wave_signal)
+}
+
+scchart Motor {
+    input float control
+    
+    extern "writeHardware" write
+    
+    // Drive motor
+    immediate during do write("motor", control)
+}

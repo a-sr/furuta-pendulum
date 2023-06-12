@@ -42,8 +42,8 @@ The Ptolemy II model is more accurate because it uses an RK-45 solver.
     - **[modes-nested](/lf/modes-nested)**: A variant that uses a two nested [modal reactors](https://www.lf-lang.org/docs/handbook/modal-models?target=c) to model the pendulum control modes and the LED state.
     - **[scchart-embedded](/lf/scchart-embedded)**: A variant that embeds an SCCharts with dynamic ticks to handle the behavior of the controller.
 - **[sccharts](/sccharts)**: The SCCharts model variants.
-    - **[classic](/lf/classic)**: A variant that uses only classical language elements and represents time in the multiform notion.
-    - **[dynamic-ticks](/lf/dynamic-ticks)**: A variant that uses [Timed SCCharts](https://github.com/kieler/semantics/wiki/Syntax:-Timed-Automata) features to model timing aspects and dynamic ticks for a more efficient execution.
+    - **[classic](/sccharts/classic)**: A variant that uses only classical language elements and represents time in the multiform notion.
+    - **[dynamic-ticks](/sccharts/dynamic-ticks)**: A variant that uses [Timed SCCharts](https://github.com/kieler/semantics/wiki/Syntax:-Timed-Automata) features to model timing aspects and dynamic ticks for a more efficient execution.
 - **[run.py](/run.py)**: A Python script that helps in compiling and running the different programs.
 
 ## Executing the Examples

@@ -45,10 +45,10 @@ LIVE_SOURCES = {
 }
 
 # Compiler locations
-COMPILER_URL = "https://github.com/a-sr/furuta-pendulum/releases/tag/1.0.0"
-SCC_URL = "https://github.com/a-sr/furuta-pendulum/releases/download/1.0.0/scc.jar"
+COMPILER_URL = "https://github.com/a-sr/furuta-pendulum/releases/tag/v1.0.0"
+SCC_URL = "https://github.com/a-sr/furuta-pendulum/releases/download/v1.0.0/scc.jar"
 SCC_JAR = join(ROOT, "compiler/scc.jar")
-LFC_URL = "https://github.com/a-sr/furuta-pendulum/releases/download/1.0.0/lfc.jar"
+LFC_URL = "https://github.com/a-sr/furuta-pendulum/releases/download/v1.0.0/lfc.jar"
 LFC_JAR = join(ROOT, "compiler/lfc.jar")
 
 # Source files for SCCharts compilation

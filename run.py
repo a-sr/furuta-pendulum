@@ -278,10 +278,10 @@ def check_compiler(jar):
                 r = requests.get(SCC_URL)
                 with open(SCC_JAR, "wb") as f:
                     f.write(r.content)
-            if not isfile(SCC_JAR):
+            if not isfile(LFC_JAR):
                 print("== Downloading LF Compiler ==")
                 r = requests.get(LFC_URL)
-                with open(SCC_JAR, "wb") as f:
+                with open(LFC_JAR, "wb") as f:
                     f.write(r.content)
         else:
             print(

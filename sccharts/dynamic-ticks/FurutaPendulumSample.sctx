@@ -1,14 +1,5 @@
 #hostcode-c-header "#include \"time-util.h\""
 
-// If you want to run the sample in the KIELER simulation,
-// comment out the line above and comment in the lines below. 
-//#kicoenv {"de.cau.cs.kieler.simulation.comm.blacklist":["guard"]}
-//#hostcode-c-header "#include <stdint.h>"
-//#hostcode-c-header "typedef int64_t clock_time;"
-//#hostcode-c "#define MSEC(t) (t * 1000000LL)"
-//#hostcode-c "#define SEC(t) (t * 1000000000LL)"
-//#hostcode-c "#define time_elapsed() (0)"
-
 import "./PendulumController.sctx"
 import "./PendulumSound.sctx"
 import "../PendulumSimulation.sctx"

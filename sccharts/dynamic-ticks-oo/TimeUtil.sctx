@@ -1,0 +1,32 @@
+/**
+ * General interface for converting time.
+ *
+ * @author Alexander Schulz-Rosengarten
+ */
+@Interface
+scchart TimeUtil {
+    method clock-time sec(int secs)
+    method clock-time msec(int msecs)
+}
+
+/**
+ * Time conversion implementation using host
+ * functions.
+ *
+ * @author Alexander Schulz-Rosengarten
+ */
+@Class
+scchart HostTimeUtil extends TimeUtil {
+    // Host function for time conversion
+    @Hide extern "MSEC" MSEC
+    @Hide extern "SEC" SEC
+    
+    @inline
+    override method clock-time sec(int secs) {
+        return SEC(secs)
+    }
+    @inline
+    override method clock-time msec(int msecs) {
+        return MSEC(msecs)
+    }
+}

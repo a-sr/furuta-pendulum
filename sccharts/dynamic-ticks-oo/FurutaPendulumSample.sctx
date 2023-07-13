@@ -1,0 +1,63 @@
+#hostcode-c-header "#include \"time-util.h\""
+
+import "./TimeUtil.sctx"
+import "./PendulumState.sctx"
+import "./PendulumController.sctx"
+import "./PendulumSound.sctx"
+import "./PendulumSimulation.sctx"
+import "../Output.sctx"
+
+/**
+ * This model of the Furuta pendulum control program conducts
+ * a 3 second simulation and stores the observed behavior in a
+ * separate file.
+ * It uses timed SCCharts and dynamic ticks to handle time,
+ * as well as object-oriented structuring features. 
+ *
+ * The simulation and motor control logic is based on a Ptolemy II
+ * model constructed by Johan Eker and described in this paper:
+ * J. Liu, J. Eker, J. W. Janneck, and E. A. Lee,
+ * “Realistic simulations of embedded control systems,”
+ * IFAC Proceedings Volumes, vol. 35, no. 1, pp. 391–396, 2002.
+ *
+ * @author Alexander Schulz-Rosengarten
+ */
+@IntegerClockType "clock_time" // Set host type for clocks
+@DefaultSleep "SEC(10)" // Default sleep time, in case none is requested by the model itself
+@ClocksUseSD // Advanced composition support for clocks
+scchart FurutaPendulumSample {
+    // Indicate end of sample
+    output bool finished = false
+
+    // Time conversion utility
+    ref HostTimeUtil tu
+
+    // Sample and simulation configuration
+    const clock-time TIMEOUT = tu.sec(3)
+    const clock-time SAMPLE_PERIOD = tu.msec(5)
+    
+    // Pendulum state object
+    ref PendulumState pendulum
+
+    // Behavior components
+    ref PendulumSound soundControl(tu, pendulum)
+    ref PendulumController pendulumControl(tu, pendulum)
+    ref PendulumSimulation sim(pendulum, SAMPLE_PERIOD)
+    
+    // Output
+    float outputTime = 0
+    float outputEngergy = 0
+    ref Output out(
+        pendulum.control, pendulum.led, pendulum.speaker, outputEngergy,
+        pendulum.theta, pendulum.d_theta, pendulum.phi, pendulum.d_phi,
+        outputTime, finished
+    )
+
+    // Timing control
+    clock time
+    during if time > TIMEOUT do finished = true // Stop sample after timeout
+    during do outputTime = time / `(double) SEC(1)` // Convert to seconds
+    
+    // This action is necessary because Output was not adapted to handle OO in this example
+    during do outputEngergy = pendulum.getEnergy()
+}

@@ -18,7 +18,8 @@ ALL = "all"
 ALL_SCC = "scchart"
 SCC_CLASSIC = "scchart-classic"
 SCC_DYN = "scchart-dynamic"
-SCC_SAMPLES = [SCC_CLASSIC, SCC_DYN]
+SCC_OO = "scchart-dynamic-oo"
+SCC_SAMPLES = [SCC_CLASSIC, SCC_DYN, SCC_OO]
 ALL_LF = "lf"
 LF_PLAIN = "lf-classic"
 LF_MODES = "lf-modes"
@@ -32,6 +33,7 @@ ROOT = dirname(abspath(__file__))
 SAMPLE_SOURCES = {
     SCC_CLASSIC: join(ROOT, "sccharts/classic/FurutaPendulumSample.sctx"),
     SCC_DYN: join(ROOT, "sccharts/dynamic-ticks/FurutaPendulumSample.sctx"),
+    SCC_OO: join(ROOT, "sccharts/dynamic-ticks-oo/FurutaPendulumSample.sctx"),
     LF_PLAIN: join(ROOT, "lf/classic/FurutaPendulumSample.lf"),
     LF_MODES: join(ROOT, "lf/modes/FurutaPendulumSample.lf"),
     LF_MODES_NESTED: join(ROOT, "lf/modes-nested/FurutaPendulumSample.lf"),
@@ -142,7 +144,9 @@ def run_lf(model, sample):
     run_cmd(cmd, wd)
 
     print("\n= Running LF Program =")
-    if not sample:
+    if sample:
+        print("Please wait. The execution will take 3 seconds.")
+    else:
         print("Please open the visualization front-end is a browser on the same computer and click connect after the server started.")
         print(f"Visualization page: {VISUALIZATION}")
     name = splitext(basename(source))[0]
@@ -212,7 +216,9 @@ def run_ssc(model, sample):
     run_cmd(cmd, wd)
 
     print("\n= Running Program =")
-    if not sample:
+    if sample:
+        print("Please wait. The execution will take 3 seconds.")
+    else:
         print("Please open the visualization front-end is a browser on the same computer and click connect after the server started.")
         print(f"Visualization page: {VISUALIZATION}")
     cmd = [exe]
@@ -243,10 +249,9 @@ def check_facil():
             print("facil.io submodule not checked out!")
             answer = input('Checkout facil.io submodule now? (Yes/No): ')
             if answer.lower() == "yes" or answer.lower() == "y":
-                run_cmd(["git", "submodule", "init"], ROOT)
-                run_cmd(["git", "submodule", "update"], ROOT)
+                run_cmd(["git", "submodule", "update", "--init"], ROOT)
             else:
-                print("Please update the facil.io submodule by running 'git submodule init && git submodule update'.")
+                print("Please update the facil.io submodule by running 'git submodule update --init'.")
                 exit(0)
 
         print("Missing facil.io library files!")

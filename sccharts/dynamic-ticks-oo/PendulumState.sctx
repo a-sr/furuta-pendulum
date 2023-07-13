@@ -1,0 +1,28 @@
+#resource "../../impl/behavior.h"
+#resource "../../impl/behavior.c"
+#hostcode-c "#include \"behavior.h\""
+
+/**
+ * SCCharts class to store the current state of the pedulum.
+ *
+ * @author Alexander Schulz-Rosengarten
+ */
+@Class
+scchart PendulumState {
+    public float theta
+    public float d_theta
+    public float phi
+    public float d_phi
+        
+    public float control = 0
+    public bool led = false
+    public bool speaker = false
+    
+    // External funtions for computation
+    @Hide extern "restrict_angle" restrict_angle
+    @Hide extern "get_energy" get_energy
+        
+    method float getEnergy() {
+        return get_energy(d_theta, restrict_angle(theta))
+    }
+}

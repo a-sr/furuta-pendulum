@@ -1,0 +1,77 @@
+#resource "../../impl/behavior.h"
+#resource "../../impl/behavior.c"
+#resource "../../impl/simulation.h"
+#resource "../../impl/simulation.c"
+#hostcode-c "#include \"simulation.h\""
+#hostcode-c "#include \"behavior.h\""
+
+import "./PendulumState.sctx"
+
+/**
+ * This SCChart provides a simple simulation environment for the
+ * Furuta pendulum.
+ * 
+ * The simulation logic is factored out (impl/simulation.c) and 
+ * is based on a Ptolemy II model constructed by Johan Eker and 
+ * described in this paper:
+ * J. Liu, J. Eker, J. W. Janneck, and E. A. Lee,
+ * “Realistic simulations of embedded control systems,”
+ * IFAC Proceedings Volumes, vol. 35, no. 1, pp. 391–396, 2002.
+ *
+ * Original adaption to C and LF by Edward A. Lee, see:
+ * https://github.com/lf-lang/examples-lingua-franca/tree/383e816627e2668330df3dfc08e7f4202461f42c/C/src/modal_models/FurutaPendulum
+ *
+ * It uses a simple forward-Euler simulation.
+ * The Ptolemy II model is more accurate because it uses an
+ * RK-45 solver.
+ * 
+ * This model outputs its state every `sample_period`.
+ * It updates the state before outputting it using the most 
+ * recently received control input, except on the first input, 
+ * where it just outputs the initial state.
+ * 
+ * The `theta` output is the angle of the pendulum, which is 0
+ * when the pendulum is pointing straight up, and `d_theta` is 
+ * its initial angular velocity. The `phi` output is the angle 
+ * of the horizontal arm and `d_phi` is its angular velocity.
+ *
+ * This variant is adjusted to use the object-oriented
+ * represenation of the pendulum.
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+scchart PendulumSimulation {
+    input ref PendulumState pendulum
+    input float sample_period
+    
+    const float initial_theta = -3.14159 // Initial pendulum angle (down)
+    
+    // External funtion for the simulation
+    @Hide extern "simulate" simulate
+    
+    float pendulum_state[4] = {0,0,0,0} // Internal state of the pendulum.
+    float latest_control = 0 // Stores the controller response until next simulation cycle.
+    
+    // Initialize pendulum state
+    entry do pendulum_state[0] = initial_theta
+
+    // Set in shared pendulum state
+    immediate during 
+        do pendulum.theta = pendulum_state[0]; 
+           pendulum.d_theta = pendulum_state[1];
+           pendulum.phi = pendulum_state[2];
+           pendulum.d_phi = pendulum_state[3]
+           
+    region Simulation {
+        initial state RunWithSampleRate {
+            // Pause simulation outside SAMPLE_PERIOD
+            @SoftReset
+            immediate period sample_period
+            
+            // Simulate (except in first tick) and store control response
+            during do simulate(&pendulum_state, sample_period, latest_control);
+                      latest_control = pendulum.control
+        }
+    }
+}
+

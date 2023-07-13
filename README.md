@@ -43,7 +43,8 @@ The Ptolemy II model is more accurate because it uses an RK-45 solver.
     - **[scchart-embedded](/lf/scchart-embedded)**: A variant that embeds an SCCharts with dynamic ticks to handle the behavior of the controller.
 - **[sccharts](/sccharts)**: The SCCharts model variants.
     - **[classic](/sccharts/classic)**: A variant that uses only classical language elements and represents time in the multiform notion.
-    - **[dynamic-ticks](/sccharts/dynamic-ticks)**: A variant that uses [Timed SCCharts](https://github.com/kieler/semantics/wiki/Syntax:-Timed-Automata) features to model timing aspects and dynamic ticks for a more efficient execution.
+    - **[dynamic-ticks](/sccharts/dynamic-ticks)**: A variant that uses [timed SCCharts](https://github.com/kieler/semantics/wiki/Syntax:-Timed-Automata) features to model timing aspects and dynamic ticks for a more efficient execution.
+    - **[dynamic-ticks-oo](/sccharts/dynamic-ticks-oo)**: A variant that uses object-oriented structuring features in combination with timed SCCharts.
 - **[run.py](/run.py)**: A Python script that helps in compiling and running the different programs.
 
 ## Executing the Examples

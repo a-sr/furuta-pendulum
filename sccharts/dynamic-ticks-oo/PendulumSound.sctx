@@ -1,0 +1,40 @@
+#resource "../../impl/behavior.h"
+#resource "../../impl/behavior.c"
+#hostcode-c "#include \"behavior.h\""
+
+import "./TimeUtil.sctx"
+import "./PendulumState.sctx"
+
+/**
+ * This SCChart produces a square wave sound signal relative to 
+ * the angle of the pendulum.
+ * The logic for determining the frequency is factored out
+ * (see impl/behavior.c).
+ * The model uses a clock from timed SCCharts and dynamic
+ * ticks, as well as object-oriented structuring features.
+ * 
+ * @author Alexander Schulz-Rosengarten
+ */
+scchart PendulumSound {
+    input ref TimeUtil tu
+    input ref PendulumState pendulum
+
+    // External funtion for the sound behavior
+    @Hide extern "sound_frequency" sound_frequency
+
+    clock clk // Clock for time tracking
+    clock-time duration = 0 // Duration of a cycle
+
+    // Start with active sound
+    entry do pendulum.speaker = true
+
+    // Update cycle duration based on theta
+    immediate during do duration = tu.sec((1 / sound_frequency(pendulum.theta)) / 2)
+
+    region {
+        initial state Alternate 
+            if clk >= duration // If reached duration...
+                do pendulum.speaker = !pendulum.speaker; clk = 0 // toggle and reset
+                go to Alternate
+    }
+}
